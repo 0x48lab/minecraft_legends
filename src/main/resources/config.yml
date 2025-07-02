@@ -1,0 +1,127 @@
+# Minecraft Legends - Main Configuration
+# Battle Royaleプラグイン設定
+
+# ワールド設定
+world:
+  size: 3000  # マップサイズ (3000x3000)
+  name-prefix: "br_world"  # ワールド名のプレフィックス
+  
+# リスポーンビーコン設定
+respawn-beacon:
+  count: 6  # ビーコンの数
+  respawn-time: 7  # 復活にかかる秒数
+  min-distance: 200  # ビーコン間の最小距離
+  
+# ゲーム設定
+game:
+  max-players: 24  # 最大プレイヤー数
+  team-size: 3  # チームサイズ
+  min-players: 12  # 最小開始人数
+  legend-selection-time: 60  # レジェンド選択時間（秒）
+  auto-start: true  # 人数が揃ったら自動開始
+
+# リング設定
+ring:
+  update-interval: 3  # 収縮更新間隔（秒）
+  phases:
+    1:
+      wait-time: 180  # 3分
+      shrink-time: 120  # 2分
+      damage: 2
+    2:
+      wait-time: 90  # 1分30秒
+      shrink-time: 90  # 1分30秒
+      damage: 3
+    3:
+      wait-time: 90  # 1分30秒
+      shrink-time: 90  # 1分30秒
+      damage: 5
+    4:
+      wait-time: 80  # 1分20秒
+      shrink-time: 60  # 1分
+      damage: 10
+    5:
+      wait-time: 80  # 1分20秒
+      shrink-time: 40  # 40秒
+      damage: 15
+    6:
+      wait-time: 60  # 1分
+      shrink-time: 30  # 30秒
+      damage: 20
+    7:  # 最終フェーズ
+      wait-time: 30
+      shrink-time: 120  # 2分
+      damage: 50
+      final-size: 0
+
+# サプライボックス設定
+supply-boxes:
+  per-beacon: 4  # ビーコンあたりのチェスト数
+  spawn-radius: 20  # ビーコンからの配置半径
+  loot-table: "default"  # 戦利品テーブル
+
+# レジェンド設定
+legends:
+  pathfinder:
+    enabled: true
+    grapple-range: 30  # グラップリング射程
+    grapple-cooldown: 25  # クールダウン（秒）
+  wraith:
+    enabled: true
+    phase-duration: 3  # 透明化時間（秒）
+    phase-cooldown: 35  # クールダウン（秒）
+  lifeline:
+    enabled: true
+    heal-amount: 6  # 回復量（ハート）
+    heal-range: 5  # 回復範囲
+    heal-cooldown: 45  # クールダウン（秒）
+
+# データベース設定
+database:
+  type: "sqlite"  # sqlite, mysql
+  sqlite:
+    file: "plugins/MinecraftLegends/data.db"
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "minecraft_legends"
+    username: "user"
+    password: "password"
+    pool-size: 10
+
+# 外部API設定
+api:
+  enabled: false  # 初期は無効
+  base-url: "https://api.example.com"
+  token: ""
+  timeout: 5000
+
+# 国際化設定
+language:
+  default: "ja"
+  available: ["ja", "en"]
+
+# ゲームループ設定
+game-loop:
+  waiting-time: 60  # ゲーム間の待機時間（秒）
+  auto-start: true  # 自動開始
+  restart-delay: 10  # ゲーム終了後の再開遅延（秒）
+
+# ログ設定
+logging:
+  level: "INFO"  # DEBUG, INFO, WARN, ERROR
+  file-output: true  # ファイルへの出力
+  console-output: true  # コンソールへの出力
+  max-file-size: "10MB"  # ログファイルの最大サイズ
+
+# パフォーマンス設定
+performance:
+  async-database: true  # 非同期データベース処理
+  cache-player-data: true  # プレイヤーデータのキャッシュ
+  world-cleanup: true  # ゲーム終了後のワールドクリーンアップ
+
+# デバッグ設定
+debug:
+  enabled: false  # デバッグモード
+  show-coordinates: false  # 座標表示
+  broadcast-events: false  # イベントのブロードキャスト

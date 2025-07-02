@@ -1,0 +1,179 @@
+# Minecraft Legends - Titles Configuration
+# 称号システム設定ファイル
+
+titles:
+  # 初心者向け称号
+  - id: "first_win"
+    name: "&a初勝利"
+    description: "初めての勝利を達成"
+    conditions:
+      wins: 1
+    priority: 10
+    
+  - id: "first_kill"
+    name: "&cファーストブラッド"
+    description: "初めてのキルを達成"
+    conditions:
+      kills: 1
+    priority: 9
+
+  # キル関連称号
+  - id: "killer"
+    name: "&4キラー"
+    description: "100キルを達成"
+    conditions:
+      kills: 100
+    priority: 5
+    
+  - id: "assassin"
+    name: "&8アサシン"
+    description: "500キルを達成"
+    conditions:
+      kills: 500
+    priority: 4
+    
+  - id: "legend_slayer"
+    name: "&cレジェンドスレイヤー"
+    description: "1000キルを達成"
+    conditions:
+      kills: 1000
+    priority: 3
+
+  # 勝利関連称号
+  - id: "champion"
+    name: "&6チャンピオン"
+    description: "10回勝利を達成"
+    conditions:
+      wins: 10
+    priority: 7
+    
+  - id: "br_predator"
+    name: "&5BRプレデター"
+    description: "50回勝利を達成"
+    conditions:
+      wins: 50
+    priority: 2
+    
+  - id: "br_master"
+    name: "&dBRマスター"
+    description: "100回勝利を達成"
+    conditions:
+      wins: 100
+    priority: 1
+
+  # 生存関連称号
+  - id: "survivor"
+    name: "&2サバイバー"
+    description: "チームメイトを50回復活"
+    conditions:
+      revive_count: 50
+    priority: 6
+    
+  - id: "medic"
+    name: "&bメディック"
+    description: "チームメイトを100回復活"
+    conditions:
+      revive_count: 100
+    priority: 5
+
+  # ダメージ関連称号
+  - id: "damage_dealer"
+    name: "&eダメージディーラー"
+    description: "総ダメージ100,000を達成"
+    conditions:
+      damage: 100000
+    priority: 6
+    
+  - id: "destroyer"
+    name: "&4デストロイヤー"
+    description: "総ダメージ500,000を達成"
+    conditions:
+      damage: 500000
+    priority: 4
+
+  # レジェンド関連称号
+  - id: "legend_master"
+    name: "&5レジェンドマスター"
+    description: "すべてのレジェンドで勝利"
+    conditions:
+      and:
+        - used_legends: 3  # 全レジェンド使用
+        - wins: 1
+    priority: 3
+    
+  - id: "pathfinder_main"
+    name: "&3パスファインダーメイン"
+    description: "パスファインダーで10回勝利"
+    conditions:
+      legend_wins_pathfinder: 10
+    priority: 8
+    
+  - id: "wraith_main"
+    name: "&8レイスメイン"
+    description: "レイスで10回勝利"
+    conditions:
+      legend_wins_wraith: 10
+    priority: 8
+    
+  - id: "lifeline_main"
+    name: "&aライフラインメイン"
+    description: "ライフラインで10回勝利"
+    conditions:
+      legend_wins_lifeline: 10
+    priority: 8
+
+  # 特殊称号
+  - id: "hotshot"
+    name: "&cホットショット"
+    description: "1ゲームで10キル達成"
+    conditions:
+      max_kills_in_game: 10
+    priority: 4
+    
+  - id: "carry"
+    name: "&6キャリー"
+    description: "1ゲームで15キル達成"
+    conditions:
+      max_kills_in_game: 15
+    priority: 3
+    
+  - id: "pacifist"
+    name: "&fパシフィスト"
+    description: "キル数0で勝利を達成"
+    conditions:
+      and:
+        - wins: 1
+        - kills: 0
+    priority: 7
+
+  # コンボ称号
+  - id: "well_rounded"
+    name: "&bオールラウンダー"
+    description: "バランスの取れた成績"
+    conditions:
+      and:
+        - kills: 50
+        - wins: 5
+        - revive_count: 25
+    priority: 5
+    
+  - id: "br_elite"
+    name: "&dBRエリート"
+    description: "エリートプレイヤーの証"
+    conditions:
+      and:
+        - wins: 25
+        - kills: 250
+        - damage: 250000
+    priority: 2
+
+# 称号の表示設定
+display:
+  # 称号をチャット名の前に表示するか
+  show-in-chat: true
+  # 称号をプレイヤーリストに表示するか
+  show-in-tab: true
+  # 称号をプレイヤーの頭上に表示するか
+  show-above-head: false
+  # 複数の称号を持つ場合の表示優先度（priorityの値が小さいほど優先）
+  use-priority: true

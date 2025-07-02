@@ -1,0 +1,131 @@
+# Minecraft Legends - English Messages
+# English message file
+
+# Game related
+game:
+  start: "&a[&6BR&a] Game has started!"
+  end: "&a[&6BR&a] Game has ended."
+  winner: "&a[&6BR&a] &e%team%&a is the champion!"
+  waiting: "&a[&6BR&a] Waiting for players... (&e%current%&a/&e%required%&a)"
+  countdown: "&a[&6BR&a] Game starts in &e%time%&a seconds!"
+  force-start: "&a[&6BR&a] Game force started."
+  not-enough-players: "&c[&6BR&c] Not enough players. (Minimum %min% required)"
+  already-started: "&c[&6BR&c] Game has already started."
+
+# Team related
+team:
+  created: "&a[&6BR&a] Created team &e%name%&a."
+  joined: "&a[&6BR&a] Joined team &e%name%&a."
+  left: "&a[&6BR&a] Left the team."
+  disbanded: "&a[&6BR&a] Disbanded team &e%name%&a."
+  invited: "&a[&6BR&a] Invited &e%player%&a to the team."
+  invitation-received: "&a[&6BR&a] You've been invited to team &e%name%&a."
+  invitation-accepted: "&a[&6BR&a] &e%player%&a accepted the invitation."
+  invitation-rejected: "&c[&6BR&c] &e%player%&a rejected the invitation."
+  already-in-team: "&c[&6BR&c] Already in a team."
+  team-full: "&c[&6BR&c] Team is full."
+  team-not-found: "&c[&6BR&c] Team &e%name%&c not found."
+  not-in-team: "&c[&6BR&c] Not in a team."
+  not-team-leader: "&c[&6BR&c] You're not the team leader."
+  auto-assigned: "&a[&6BR&a] Automatically assigned to team &e%name%&a."
+
+# Legend related
+legend:
+  selection-start: "&a[&6BR&a] Select your legend! (&e%time%&a seconds remaining)"
+  selected: "&a[&6BR&a] Selected &e%legend%&a."
+  already-selected: "&c[&6BR&c] This legend is already selected."
+  auto-assigned: "&a[&6BR&a] Automatically assigned &e%legend%&a."
+  pathfinder:
+    name: "Pathfinder"
+    description: "High-speed movement with grappling hook"
+    ability-used: "&a[&6BR&a] Used grappling hook!"
+    ability-cooldown: "&c[&6BR&c] Grappling hook is on cooldown. (&e%time%&c seconds remaining)"
+  wraith:
+    name: "Wraith"
+    description: "Temporarily become invisible with void walk"
+    ability-used: "&a[&6BR&a] Entered the void!"
+    ability-end: "&a[&6BR&a] Exited the void."
+    ability-cooldown: "&c[&6BR&c] Void walk is on cooldown. (&e%time%&c seconds remaining)"
+  lifeline:
+    name: "Lifeline"
+    description: "Heal and revive teammates"
+    ability-used: "&a[&6BR&a] Used combat medic!"
+    ability-cooldown: "&c[&6BR&c] Combat medic is on cooldown. (&e%time%&c seconds remaining)"
+    healed: "&a[&6BR&a] Healed &e%player%&a."
+
+# Ring related
+ring:
+  warning: "&c[&6BR&c] Ring closing in &e%time%&c seconds!"
+  shrinking: "&c[&6BR&c] Ring is shrinking! Move to the safe zone!"
+  damage: "&c[&6BR&c] Taking damage outside the ring!"
+  next-phase: "&a[&6BR&a] Next ring phase: &e%phase%"
+  final-phase: "&c[&6BR&c] &lFinal ring!&r&c Everything will shrink!"
+
+# Respawn related
+respawn:
+  beacon-found: "&a[&6BR&a] Respawn beacon found."
+  reviving: "&a[&6BR&a] Reviving &e%player%&a... (&e%progress%&a%)"
+  revived: "&a[&6BR&a] &e%player%&a has been revived!"
+  revive-interrupted: "&c[&6BR&c] Revive interrupted."
+  no-banner: "&c[&6BR&c] Respawn banner required."
+  beacon-destroyed: "&c[&6BR&c] This respawn beacon is destroyed."
+
+# Combat related
+combat:
+  kill: "&a[&6BR&a] &e%killer%&a eliminated &e%victim%&a!"
+  death: "&c[&6BR&c] You have been eliminated."
+  teammate-down: "&c[&6BR&c] Teammate &e%player%&c is down!"
+  last-team: "&e[&6BR&e] &lLast team standing!"
+  damage-dealt: "&a+%damage% damage"
+
+# Statistics related
+stats:
+  header: "&a[&6BR&a] &e%player%&a's statistics:"
+  kills: "&a  Kills: &e%kills%"
+  deaths: "&a  Deaths: &e%deaths%"
+  wins: "&a  Wins: &e%wins%"
+  damage: "&a  Damage: &e%damage%"
+  kd-ratio: "&a  K/D Ratio: &e%ratio%"
+  win-rate: "&a  Win Rate: &e%rate%&a%"
+  favorite-legend: "&a  Favorite Legend: &e%legend%"
+
+# Title related
+title:
+  earned: "&a[&6BR&a] Earned title &e%title%&a!"
+  equipped: "&a[&6BR&a] Equipped title &e%title%&a."
+  removed: "&a[&6BR&a] Removed title."
+  list-header: "&a[&6BR&a] Earned titles:"
+
+# Command related
+command:
+  no-permission: "&c[&6BR&c] You don't have permission to use this command."
+  player-only: "&c[&6BR&c] This command can only be used by players."
+  player-not-found: "&c[&6BR&c] Player &e%player%&c not found."
+  invalid-argument: "&c[&6BR&c] Invalid argument."
+  config-reloaded: "&a[&6BR&a] Configuration reloaded."
+  game-started: "&a[&6BR&a] Game started."
+  game-stopped: "&a[&6BR&a] Game stopped."
+
+# Error messages
+error:
+  database: "&c[&6BR&c] Database error occurred."
+  world-creation: "&c[&6BR&c] Failed to create world."
+  config-load: "&c[&6BR&c] Failed to load configuration."
+  internal: "&c[&6BR&c] Internal error occurred. Please contact administrator."
+
+# GUI related
+gui:
+  legend-selection: "Legend Selection"
+  team-management: "Team Management"
+  statistics: "Statistics"
+  settings: "Settings"
+  close: "Close"
+  previous: "Previous Page"
+  next: "Next Page"
+
+# Time related
+time:
+  seconds: "%time% seconds"
+  minutes: "%time% minutes"
+  hours: "%time% hours"
+  days: "%time% days"

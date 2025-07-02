@@ -1,0 +1,245 @@
+# Minecraft Legends - Loot Tables Configuration
+# 戦利品テーブル設定ファイル
+
+# 戦利品テーブル定義
+loot-tables:
+  # 基本戦利品テーブル
+  default:
+    # 共通アイテム（高確率）
+    common:
+      # 武器
+      - material: IRON_SWORD
+        chance: 25
+        amount: 1
+        enchantments:
+          - type: DAMAGE_ALL
+            level: 1
+            chance: 30
+      - material: BOW
+        chance: 20
+        amount: 1
+        enchantments:
+          - type: ARROW_DAMAGE
+            level: 1
+            chance: 25
+      - material: CROSSBOW
+        chance: 15
+        amount: 1
+        
+      # 防具
+      - material: IRON_HELMET
+        chance: 15
+        amount: 1
+      - material: IRON_CHESTPLATE
+        chance: 15
+        amount: 1
+      - material: IRON_LEGGINGS
+        chance: 15
+        amount: 1
+      - material: IRON_BOOTS
+        chance: 15
+        amount: 1
+      - material: LEATHER_HELMET
+        chance: 20
+        amount: 1
+      - material: LEATHER_CHESTPLATE
+        chance: 20
+        amount: 1
+      - material: LEATHER_LEGGINGS
+        chance: 20
+        amount: 1
+      - material: LEATHER_BOOTS
+        chance: 20
+        amount: 1
+        
+      # 矢
+      - material: ARROW
+        chance: 30
+        amount: 16-32
+        
+      # 食料
+      - material: BREAD
+        chance: 25
+        amount: 2-4
+      - material: COOKED_BEEF
+        chance: 20
+        amount: 2-4
+      - material: COOKED_PORKCHOP
+        chance: 20
+        amount: 2-4
+        
+    # レアアイテム（中確率）
+    rare:
+      # 武器
+      - material: DIAMOND_SWORD
+        chance: 10
+        amount: 1
+        enchantments:
+          - type: DAMAGE_ALL
+            level: 2
+            chance: 50
+          - type: DURABILITY
+            level: 1
+            chance: 30
+      - material: BOW
+        chance: 8
+        amount: 1
+        enchantments:
+          - type: ARROW_DAMAGE
+            level: 2
+            chance: 60
+          - type: ARROW_INFINITE
+            level: 1
+            chance: 20
+            
+      # 防具
+      - material: DIAMOND_HELMET
+        chance: 8
+        amount: 1
+      - material: DIAMOND_CHESTPLATE
+        chance: 8
+        amount: 1
+      - material: DIAMOND_LEGGINGS
+        chance: 8
+        amount: 1
+      - material: DIAMOND_BOOTS
+        chance: 8
+        amount: 1
+        
+      # 回復アイテム
+      - material: GOLDEN_APPLE
+        chance: 12
+        amount: 1-2
+      - material: SPLASH_POTION
+        chance: 10
+        amount: 1-2
+        potion-type: HEALING
+        
+      # 特殊アイテム
+      - material: ENDER_PEARL
+        chance: 5
+        amount: 1-2
+      - material: FIREWORK_ROCKET
+        chance: 8
+        amount: 3-5
+        
+    # エピックアイテム（低確率）
+    epic:
+      # 武器
+      - material: NETHERITE_SWORD
+        chance: 3
+        amount: 1
+        enchantments:
+          - type: DAMAGE_ALL
+            level: 3
+            chance: 80
+          - type: DURABILITY
+            level: 2
+            chance: 60
+          - type: FIRE_ASPECT
+            level: 1
+            chance: 40
+      - material: BOW
+        chance: 2
+        amount: 1
+        enchantments:
+          - type: ARROW_DAMAGE
+            level: 3
+            chance: 90
+          - type: ARROW_FIRE
+            level: 1
+            chance: 50
+          - type: ARROW_INFINITE
+            level: 1
+            chance: 70
+            
+      # 防具
+      - material: NETHERITE_HELMET
+        chance: 2
+        amount: 1
+        enchantments:
+          - type: PROTECTION_ENVIRONMENTAL
+            level: 2
+            chance: 70
+      - material: NETHERITE_CHESTPLATE
+        chance: 2
+        amount: 1
+        enchantments:
+          - type: PROTECTION_ENVIRONMENTAL
+            level: 2
+            chance: 70
+      - material: NETHERITE_LEGGINGS
+        chance: 2
+        amount: 1
+        enchantments:
+          - type: PROTECTION_ENVIRONMENTAL
+            level: 2
+            chance: 70
+      - material: NETHERITE_BOOTS
+        chance: 2
+        amount: 1
+        enchantments:
+          - type: PROTECTION_ENVIRONMENTAL
+            level: 2
+            chance: 70
+            
+      # 超レア回復アイテム
+      - material: ENCHANTED_GOLDEN_APPLE
+        chance: 1
+        amount: 1
+      - material: TOTEM_OF_UNDYING
+        chance: 0.5
+        amount: 1
+
+# チェスト生成設定
+chest-generation:
+  # チェストあたりのアイテム数
+  items-per-chest:
+    min: 3
+    max: 6
+    
+  # レアリティ別の生成確率
+  rarity-weights:
+    common: 70    # 70%
+    rare: 25      # 25%
+    epic: 5       # 5%
+    
+  # 同じレアリティから複数アイテムを選ぶ確率
+  multiple-items-same-rarity: 40  # 40%
+  
+  # 空のスロットを残す確率
+  empty-slot-chance: 15  # 15%
+
+# 特殊チェスト設定
+special-chests:
+  # 高レベル戦利品チェスト（マップ中央など）
+  high-tier:
+    enabled: true
+    count: 2  # マップに2個配置
+    rarity-weights:
+      common: 40
+      rare: 40
+      epic: 20
+    items-per-chest:
+      min: 5
+      max: 8
+      
+  # 武器専用チェスト
+  weapon-cache:
+    enabled: true
+    count: 3
+    filter: "weapons"  # 武器のみ
+    rarity-weights:
+      common: 60
+      rare: 30
+      epic: 10
+      
+  # 防具専用チェスト
+  armor-cache:
+    enabled: true
+    count: 3
+    filter: "armor"  # 防具のみ
+    rarity-weights:
+      common: 60
+      rare: 30
+      epic: 10
