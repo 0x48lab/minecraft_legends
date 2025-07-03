@@ -3381,21 +3381,6 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             
             org.bukkit.event.player.PlayerFishEvent.State.IN_GROUND -> {
                 // フックが地面に刺さった時
-                player.sendMessage("§aグラップリングフックが地面に刺さりました！")
-                
-                // クールダウンチェック（テスト用にコメントアウト）
-                /*
-                val lastUsed = legendAbilityCooldowns[player.uniqueId] ?: 0L
-                val currentTime = System.currentTimeMillis()
-                val cooldownTime = getCooldownTime(Legend.PATHFINDER)
-                
-                if (currentTime - lastUsed < cooldownTime) {
-                    val remainingSeconds = ((cooldownTime - (currentTime - lastUsed)) / 1000)
-                    player.sendActionBar("§cグラップリングフックはクールダウン中！ あと${remainingSeconds}秒")
-                    return
-                }
-                */
-                
                 val hookLocation = hook.location
                 val playerLocation = player.location
                 val distance = playerLocation.distance(hookLocation)
@@ -3405,63 +3390,102 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     return
                 }
                 
-                // プレイヤーをフックの位置に引き寄せる
-                val direction = hookLocation.toVector().subtract(playerLocation.toVector()).normalize()
+                player.sendMessage("§bグラップリング接続！")
                 
-                // 引き寄せる力を計算（距離に応じて調整）
-                val power = kotlin.math.min(3.0, distance / 10.0)
-                player.velocity = direction.multiply(power).add(org.bukkit.util.Vector(0.0, 0.4, 0.0))
-                
-                // エフェクト
-                player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 0.8f)
-                
-                // パーティクルの軌跡
+                // パスファインダー風の振る舞い：継続的な引き寄せ
                 object : BukkitRunnable() {
-                    var count = 0
+                    var ticks = 0
+                    val maxTicks = 40 // 2秒間の引き寄せ
+                    
                     override fun run() {
-                        if (count >= 10) {
+                        // フックが無効になったか、最大時間に達したら終了
+                        if (!hook.isValid || hook.isDead || ticks >= maxTicks) {
+                            if (hook.isValid) {
+                                hook.remove()
+                            }
+                            activeHooks.remove(player.uniqueId)
                             cancel()
                             return
                         }
                         
-                        val particleLocation = player.location.add(0.0, 1.0, 0.0)
+                        // 現在の位置からフックへの方向を再計算
+                        val currentPlayerLoc = player.location
+                        val currentDistance = currentPlayerLoc.distance(hookLocation)
+                        
+                        // フックに十分近づいたら終了
+                        if (currentDistance < 3.0) {
+                            hook.remove()
+                            activeHooks.remove(player.uniqueId)
+                            player.sendMessage("§a到着！")
+                            cancel()
+                            return
+                        }
+                        
+                        val direction = hookLocation.toVector().subtract(currentPlayerLoc.toVector()).normalize()
+                        
+                        // パスファインダー風の加速度設定
+                        val basePower = 0.8 // 基本速度
+                        val distanceFactor = kotlin.math.min(1.5, currentDistance / 20.0) // 距離に応じた加速
+                        val verticalBoost = if (hookLocation.y > currentPlayerLoc.y) 0.3 else 0.1 // 上方向へのブースト
+                        
+                        // 速度を適用
+                        player.velocity = player.velocity.multiply(0.5).add(
+                            direction.multiply(basePower * distanceFactor).add(
+                                org.bukkit.util.Vector(0.0, verticalBoost, 0.0)
+                            )
+                        )
+                        
+                        // グラップルラインのパーティクル
+                        val linePoints = 10
+                        for (i in 0 until linePoints) {
+                            val progress = i.toDouble() / linePoints
+                            val particleLoc = currentPlayerLoc.clone().add(
+                                direction.clone().multiply(currentDistance * progress)
+                            )
+                            player.world.spawnParticle(
+                                org.bukkit.Particle.DUST,
+                                particleLoc,
+                                1,
+                                org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 1.5f)
+                            )
+                        }
+                        
+                        // プレイヤー周辺のエフェクト
                         player.world.spawnParticle(
                             org.bukkit.Particle.END_ROD,
-                            particleLocation,
-                            5,
-                            0.3, 0.3, 0.3,
-                            0.05
+                            player.location.add(0.0, 1.0, 0.0),
+                            3,
+                            0.2, 0.2, 0.2,
+                            0.02
                         )
-                        count++
+                        
+                        // サウンドエフェクト（定期的に）
+                        if (ticks % 10 == 0) {
+                            player.world.playSound(
+                                player.location,
+                                org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE,
+                                0.5f,
+                                1.2f + (ticks.toFloat() / maxTicks) * 0.5f
+                            )
+                        }
+                        
+                        ticks++
                     }
-                }.runTaskTimer(this, 0L, 2L)
+                }.runTaskTimer(this, 0L, 1L) // 毎ティック実行
                 
-                player.sendMessage("§bグラップリング成功！")
                 legendAbilityCooldowns[player.uniqueId] = System.currentTimeMillis()
             }
             
             org.bukkit.event.player.PlayerFishEvent.State.REEL_IN -> {
-                // リールを巻いた時（右クリック）
+                // リールを巻いた時（右クリックで切断）
                 if (activeHooks.containsKey(player.uniqueId)) {
                     val activeHook = activeHooks[player.uniqueId]
-                    if (activeHook != null && activeHook.isValid && !activeHook.isDead) {
-                        // フックが何かに刺さっている場合
-                        val hookLocation = activeHook.location
-                        val block = hookLocation.block
-                        
-                        if (block.type != Material.AIR) {
-                            // ブロックに刺さっている場合、そこに向かって移動
-                            val playerLocation = player.location
-                            val direction = hookLocation.toVector().subtract(playerLocation.toVector()).normalize()
-                            val distance = playerLocation.distance(hookLocation)
-                            val power = kotlin.math.min(2.5, distance / 12.0)
-                            
-                            player.velocity = direction.multiply(power).add(org.bukkit.util.Vector(0.0, 0.3, 0.0))
-                            player.sendMessage("§bリール引き寄せ！")
-                            player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 1.2f)
-                        }
+                    if (activeHook != null && activeHook.isValid) {
+                        activeHook.remove()
                     }
                     activeHooks.remove(player.uniqueId)
+                    player.sendMessage("§7グラップリング切断")
+                    player.world.playSound(player.location, org.bukkit.Sound.ITEM_CROSSBOW_LOADING_END, 1.0f, 2.0f)
                 }
             }
             
