@@ -3360,6 +3360,13 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         // デバッグ: イベント状態をログ
         player.sendMessage("§7[DEBUG] Fish event state: ${event.state}")
         
+        // 追加のデバッグ情報
+        if (event.state == org.bukkit.event.player.PlayerFishEvent.State.IN_GROUND || 
+            event.state == org.bukkit.event.player.PlayerFishEvent.State.FAILED_ATTEMPT) {
+            player.sendMessage("§7[DEBUG] Hook location: ${hook.location}")
+            player.sendMessage("§7[DEBUG] Hook valid: ${hook.isValid}")
+        }
+        
         when (event.state) {
             org.bukkit.event.player.PlayerFishEvent.State.FISHING -> {
                 // フックを投げた時
@@ -3564,8 +3571,49 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                 event.isCancelled = true
             }
             
+            org.bukkit.event.player.PlayerFishEvent.State.FAILED_ATTEMPT -> {
+                // フックが何かに当たった（IN_GROUNDの代わりにこれが呼ばれることがある）
+                player.sendMessage("§7[DEBUG] FAILED_ATTEMPT state detected")
+                
+                // IN_GROUNDと同じ処理を実行
+                val hookLocation = hook.location
+                val playerLocation = player.location
+                val distance = playerLocation.distance(hookLocation)
+                
+                // クールダウンチェック
+                val currentTime = System.currentTimeMillis()
+                val lastUsed = hookCooldowns[player.uniqueId] ?: 0L
+                if (currentTime - lastUsed < hookCooldown) {
+                    val remaining = (hookCooldown - (currentTime - lastUsed)) / 1000.0
+                    player.sendActionBar("§cグラップリングクールダウン: ${String.format("%.1f", remaining)}秒")
+                    hook.remove()
+                    return
+                }
+                
+                if (distance > maxHookDistance) {
+                    player.sendMessage("§c距離が遠すぎます！")
+                    hook.remove()
+                    return
+                }
+                
+                player.sendMessage("§bグラップリング接続！（FAILED_ATTEMPT経由）")
+                hookCooldowns[player.uniqueId] = currentTime
+                
+                // 即座に引き寄せる（シンプルなバージョン）
+                val direction = hookLocation.toVector().subtract(playerLocation.toVector()).normalize()
+                val power = kotlin.math.min(2.5, distance / 8.0)
+                player.velocity = direction.multiply(power).add(org.bukkit.util.Vector(0.0, 0.5, 0.0))
+                
+                hook.remove()
+                activeHooks.remove(player.uniqueId)
+                
+                player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 1.0f)
+                legendAbilityCooldowns[player.uniqueId] = currentTime
+            }
+            
             else -> {
                 // その他の状態
+                player.sendMessage("§7[DEBUG] Other state: ${event.state}")
                 activeHooks.remove(player.uniqueId)
             }
         }
