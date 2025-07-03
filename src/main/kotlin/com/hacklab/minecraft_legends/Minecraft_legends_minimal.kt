@@ -3334,6 +3334,12 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     // パスファインダーのフックメカニクス
     private val activeHooks = mutableMapOf<UUID, org.bukkit.entity.FishHook>()
+    private val hookCooldowns = mutableMapOf<UUID, Long>()
+    
+    // Grappling Hook設定（snowgearsスタイル）
+    private val velocityMultiplier = 2.5 // 引き寄せ速度係数
+    private val maxHookDistance = 30.0 // 最大フック距離
+    private val hookCooldown = 1000L // クールダウン（1秒）
     
     @EventHandler
     fun onPlayerFish(event: org.bukkit.event.player.PlayerFishEvent) {
@@ -3380,100 +3386,92 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             }
             
             org.bukkit.event.player.PlayerFishEvent.State.IN_GROUND -> {
-                // フックが地面に刺さった時
+                // フックが地面に刺さった時（snowgearsスタイル）
                 val hookLocation = hook.location
                 val playerLocation = player.location
                 val distance = playerLocation.distance(hookLocation)
                 
-                if (distance > 30) {
-                    player.sendMessage("§c距離が遠すぎます！")
+                // クールダウンチェック
+                val currentTime = System.currentTimeMillis()
+                val lastUsed = hookCooldowns[player.uniqueId] ?: 0L
+                if (currentTime - lastUsed < hookCooldown) {
+                    val remaining = (hookCooldown - (currentTime - lastUsed)) / 1000.0
+                    player.sendActionBar("§cグラップリングクールダウン: ${String.format("%.1f", remaining)}秒")
+                    hook.remove()
                     return
                 }
                 
-                player.sendMessage("§bグラップリング接続！")
+                if (distance > maxHookDistance) {
+                    player.sendMessage("§c距離が遠すぎます！")
+                    hook.remove()
+                    return
+                }
                 
-                // パスファインダー風の振る舞い：継続的な引き寄せ
+                // snowgearsスタイルの速度計算
+                val dx = hookLocation.x - playerLocation.x
+                val dy = hookLocation.y - playerLocation.y
+                val dz = hookLocation.z - playerLocation.z
+                
+                // 水平距離と垂直距離を別々に計算
+                val horizontalDistance = kotlin.math.sqrt(dx * dx + dz * dz)
+                val time = distance / 10.0 // 時間ファクター
+                
+                // 速度ベクトルの計算（放物線運動を考慮）
+                var vx = dx / time * velocityMultiplier
+                var vy = (dy / time + 0.5 * 0.98 * time) * velocityMultiplier // 重力を考慮
+                var vz = dz / time * velocityMultiplier
+                
+                // 垂直方向の調整
+                if (dy > 0) {
+                    vy += 0.4 // 上方向への追加ブースト
+                } else if (dy < -5) {
+                    vy *= 0.8 // 下方向への速度を制限
+                }
+                
+                // 最大速度の制限
+                val maxVelocity = 4.0
+                val totalVelocity = kotlin.math.sqrt(vx * vx + vy * vy + vz * vz)
+                if (totalVelocity > maxVelocity) {
+                    val scale = maxVelocity / totalVelocity
+                    vx *= scale
+                    vy *= scale
+                    vz *= scale
+                }
+                
+                // 速度を適用
+                player.velocity = org.bukkit.util.Vector(vx, vy, vz)
+                
+                // フックを即座に削除
+                hook.remove()
+                activeHooks.remove(player.uniqueId)
+                hookCooldowns[player.uniqueId] = currentTime
+                
+                // エフェクト
+                player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 1.0f)
+                player.sendMessage("§bグラップリング発動！")
+                
+                // 軌道パーティクルを表示
                 object : BukkitRunnable() {
-                    var ticks = 0
-                    val maxTicks = 40 // 2秒間の引き寄せ
-                    
+                    var count = 0
                     override fun run() {
-                        // フックが無効になったか、最大時間に達したら終了
-                        if (!hook.isValid || hook.isDead || ticks >= maxTicks) {
-                            if (hook.isValid) {
-                                hook.remove()
-                            }
-                            activeHooks.remove(player.uniqueId)
+                        if (count >= 20 || player.isOnGround) {
                             cancel()
                             return
                         }
                         
-                        // 現在の位置からフックへの方向を再計算
-                        val currentPlayerLoc = player.location
-                        val currentDistance = currentPlayerLoc.distance(hookLocation)
-                        
-                        // フックに十分近づいたら終了
-                        if (currentDistance < 3.0) {
-                            hook.remove()
-                            activeHooks.remove(player.uniqueId)
-                            player.sendMessage("§a到着！")
-                            cancel()
-                            return
-                        }
-                        
-                        val direction = hookLocation.toVector().subtract(currentPlayerLoc.toVector()).normalize()
-                        
-                        // パスファインダー風の加速度設定
-                        val basePower = 0.8 // 基本速度
-                        val distanceFactor = kotlin.math.min(1.5, currentDistance / 20.0) // 距離に応じた加速
-                        val verticalBoost = if (hookLocation.y > currentPlayerLoc.y) 0.3 else 0.1 // 上方向へのブースト
-                        
-                        // 速度を適用
-                        player.velocity = player.velocity.multiply(0.5).add(
-                            direction.multiply(basePower * distanceFactor).add(
-                                org.bukkit.util.Vector(0.0, verticalBoost, 0.0)
-                            )
-                        )
-                        
-                        // グラップルラインのパーティクル
-                        val linePoints = 10
-                        for (i in 0 until linePoints) {
-                            val progress = i.toDouble() / linePoints
-                            val particleLoc = currentPlayerLoc.clone().add(
-                                direction.clone().multiply(currentDistance * progress)
-                            )
-                            player.world.spawnParticle(
-                                org.bukkit.Particle.DUST,
-                                particleLoc,
-                                1,
-                                org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 1.5f)
-                            )
-                        }
-                        
-                        // プレイヤー周辺のエフェクト
                         player.world.spawnParticle(
                             org.bukkit.Particle.END_ROD,
-                            player.location.add(0.0, 1.0, 0.0),
-                            3,
+                            player.location,
+                            5,
                             0.2, 0.2, 0.2,
-                            0.02
+                            0.05
                         )
-                        
-                        // サウンドエフェクト（定期的に）
-                        if (ticks % 10 == 0) {
-                            player.world.playSound(
-                                player.location,
-                                org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE,
-                                0.5f,
-                                1.2f + (ticks.toFloat() / maxTicks) * 0.5f
-                            )
-                        }
-                        
-                        ticks++
+                        count++
                     }
-                }.runTaskTimer(this, 0L, 1L) // 毎ティック実行
+                }.runTaskTimer(this, 0L, 2L)
                 
-                legendAbilityCooldowns[player.uniqueId] = System.currentTimeMillis()
+                // レジェンドアビリティのクールダウンも設定
+                legendAbilityCooldowns[player.uniqueId] = currentTime
             }
             
             org.bukkit.event.player.PlayerFishEvent.State.REEL_IN -> {
@@ -3487,6 +3485,39 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     player.sendMessage("§7グラップリング切断")
                     player.world.playSound(player.location, org.bukkit.Sound.ITEM_CROSSBOW_LOADING_END, 1.0f, 2.0f)
                 }
+            }
+            
+            org.bukkit.event.player.PlayerFishEvent.State.CAUGHT_ENTITY -> {
+                // エンティティを釣った時
+                val caught = event.caught
+                if (caught != null && caught != player) {
+                    // エンティティを引き寄せる
+                    val playerLocation = player.location
+                    val entityLocation = caught.location
+                    val distance = playerLocation.distance(entityLocation)
+                    
+                    if (distance <= maxHookDistance) {
+                        // エンティティを引き寄せる速度計算
+                        val dx = playerLocation.x - entityLocation.x
+                        val dy = playerLocation.y - entityLocation.y + 1.0
+                        val dz = playerLocation.z - entityLocation.z
+                        
+                        val time = distance / 10.0
+                        val vx = dx / time * 1.5
+                        val vy = (dy / time + 0.5 * 0.98 * time) * 1.5
+                        val vz = dz / time * 1.5
+                        
+                        caught.velocity = org.bukkit.util.Vector(vx, vy, vz)
+                        
+                        player.sendMessage("§aエンティティを引き寄せました！")
+                        player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 0.8f)
+                    }
+                }
+            }
+            
+            org.bukkit.event.player.PlayerFishEvent.State.CAUGHT_FISH -> {
+                // 魚を釣った時（通常は発生しないが念のため）
+                event.isCancelled = true
             }
             
             else -> {
