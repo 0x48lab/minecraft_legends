@@ -2882,7 +2882,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         // エフェクト
         beaconLoc?.world?.spawnParticle(
-            org.bukkit.Particle.SMOKE_LARGE,
+            org.bukkit.Particle.CLOUD,
             beaconLoc.add(0.5, 0.5, 0.5),
             10,
             0.5, 0.5, 0.5,
@@ -3228,7 +3228,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                         
                         // パーティクル効果（爆発は既にcreateExplosionで表示される）
                         bombLocation.world?.spawnParticle(
-                            org.bukkit.Particle.SMOKE_LARGE,
+                            org.bukkit.Particle.CLOUD,
                             bombLocation,
                             20,
                             1.0, 1.0, 1.0,
