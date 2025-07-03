@@ -3452,14 +3452,19 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             }
         }
         
+        // デバッグ: 状態を表示
+        player.sendMessage("§7[DEBUG] Fish State: ${event.state}")
+        
         when (event.state) {
             org.bukkit.event.player.PlayerFishEvent.State.FISHING -> {
                 // フックを投げた時
                 activeHooks[player.uniqueId] = hook
                 player.sendMessage("§bグラップリングフック発射！")
                 
-                // フックの見た目を強化
+                // フックの見た目を強化とフック状態の監視
                 object : BukkitRunnable() {
+                    var hasHooked = false
+                    
                     override fun run() {
                         if (!hook.isValid || hook.isDead) {
                             cancel()
@@ -3473,8 +3478,30 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                             1,
                             org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 1.0f)
                         )
+                        
+                        // フックが地面や壁に当たったかチェック（自動引き寄せ）
+                        // 速度がほぼゼロになったら地面に当たったと判断
+                        val velocity = hook.velocity
+                        val speed = velocity.length()
+                        
+                        if (!hasHooked && speed < 0.1 && hook.ticksLived > 5) {
+                            hasHooked = true
+                            player.sendMessage("§a自動グラップリング開始！")
+                            pullEntityToLocation(player, hook.location, hook)
+                            legendAbilityCooldowns[player.uniqueId] = currentTime
+                            
+                            // フックを少し後に削除
+                            Bukkit.getScheduler().runTaskLater(this@Minecraft_legends_minimal, Runnable {
+                                if (hook.isValid) {
+                                    hook.remove()
+                                }
+                                activeHooks.remove(player.uniqueId)
+                            }, 20L) // 1秒後
+                            
+                            cancel()
+                        }
                     }
-                }.runTaskTimer(this, 0L, 2L)
+                }.runTaskTimer(this, 0L, 1L) // より頻繁にチェック
             }
             
             org.bukkit.event.player.PlayerFishEvent.State.IN_GROUND -> {
@@ -3484,14 +3511,20 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             }
             
             org.bukkit.event.player.PlayerFishEvent.State.REEL_IN -> {
-                // リールを巻いた時（右クリックで切断）
+                // リールを巻いた時
                 if (activeHooks.containsKey(player.uniqueId)) {
                     val activeHook = activeHooks[player.uniqueId]
                     if (activeHook != null && activeHook.isValid) {
+                        // フックが地面に当たっている場合は引き寄せる（速度で判断）
+                        val hookSpeed = activeHook.velocity.length()
+                        if (hookSpeed < 0.1 && activeHook.ticksLived > 5) {
+                            player.sendMessage("§a手動グラップリング！")
+                            pullEntityToLocation(player, activeHook.location, activeHook)
+                            legendAbilityCooldowns[player.uniqueId] = currentTime
+                        }
                         activeHook.remove()
                     }
                     activeHooks.remove(player.uniqueId)
-                    player.sendMessage("§7グラップリング切断")
                     player.world.playSound(player.location, org.bukkit.Sound.ITEM_CROSSBOW_LOADING_END, 1.0f, 2.0f)
                 }
             }
