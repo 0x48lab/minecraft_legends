@@ -136,6 +136,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     sender.sendMessage("§e/bradmin togglering - Toggle ring boundary visibility")
                     sender.sendMessage("§e/bradmin supplybox - Spawn a supply box")
                     sender.sendMessage("§e/bradmin legend <player> <legend> - Set player legend")
+                    sender.sendMessage("§e/bradmin border - Show WorldBorder debug info")
                     return true
                 }
                 
@@ -151,6 +152,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     "togglering" -> toggleRingVisualization(sender)
                     "supplybox" -> spawnSupplyBox(sender)
                     "legend" -> setPlayerLegend(sender, args)
+                    "border" -> showWorldBorderInfo(sender)
                     else -> {
                         sender.sendMessage("§cUnknown subcommand! Use /bradmin for help.")
                     }
@@ -440,13 +442,14 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         // WorldBorderの初期設定
         val spawnLocation = world.spawnLocation
         worldBorder.center = spawnLocation
-        worldBorder.size = 3000.0 // 初期サイズ 3000x3000
+        // 初期リング半径の2倍（直径）を設定
+        worldBorder.size = currentRingRadius * 2 // 1500 * 2 = 3000
         worldBorder.damageAmount = 0.0 // WorldBorderのダメージは無効化（カスタム実装を使用）
         worldBorder.damageBuffer = 0.0 // バッファなし
-        worldBorder.warningDistance = 50 // 警告距離50ブロック
+        worldBorder.warningDistance = 200 // 警告距離200ブロック（より見やすく）
         worldBorder.warningTime = 30 // 警告時間30秒
         
-        logger.info("WorldBorder initialized - Center: (${spawnLocation.x}, ${spawnLocation.z}), Size: ${worldBorder.size}")
+        logger.info("WorldBorder initialized - Center: (${spawnLocation.x}, ${spawnLocation.z}), Size: ${worldBorder.size}, Radius: ${currentRingRadius}")
         
         // WorldBorderが設定されたことを確認してからチームをテレポート
         teleportTeamsToRandomLocations()
@@ -695,6 +698,36 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         sender.sendMessage("§aPlayers in safe zone: §f$safeCount")
         sender.sendMessage("§cPlayers in danger zone: §f$dangerCount")
+    }
+    
+    private fun showWorldBorderInfo(sender: CommandSender) {
+        val world = Bukkit.getWorlds()[0]
+        val worldBorder = world.worldBorder
+        
+        sender.sendMessage("§9=== WorldBorder Debug Info ===")
+        sender.sendMessage("§eCenter: §f${worldBorder.center.blockX}, ${worldBorder.center.blockZ}")
+        sender.sendMessage("§eSize (diameter): §f${worldBorder.size}")
+        sender.sendMessage("§eRadius: §f${worldBorder.size / 2.0}")
+        sender.sendMessage("§eDamage Amount: §f${worldBorder.damageAmount}")
+        sender.sendMessage("§eDamage Buffer: §f${worldBorder.damageBuffer}")
+        sender.sendMessage("§eWarning Distance: §f${worldBorder.warningDistance}")
+        sender.sendMessage("§eWarning Time: §f${worldBorder.warningTime}")
+        
+        // Game ring info for comparison
+        sender.sendMessage("§9=== Game Ring Info ===")
+        sender.sendMessage("§eRing Center: §f${currentRingCenter?.blockX ?: "null"}, ${currentRingCenter?.blockZ ?: "null"}")
+        sender.sendMessage("§eRing Radius: §f$currentRingRadius")
+        sender.sendMessage("§eRing Phase: §f$currentRingPhase")
+        sender.sendMessage("§eIs Shrinking: §f$isRingShrinking")
+        
+        // Check if sizes match
+        val expectedSize = currentRingRadius * 2
+        val actualSize = worldBorder.size
+        if (kotlin.math.abs(expectedSize - actualSize) > 1.0) {
+            sender.sendMessage("§c⚠ WARNING: WorldBorder size ($actualSize) doesn't match expected size ($expectedSize)!")
+        } else {
+            sender.sendMessage("§a✓ WorldBorder size matches game ring size")
+        }
     }
     
     private fun toggleRingVisualization(sender: CommandSender) {
