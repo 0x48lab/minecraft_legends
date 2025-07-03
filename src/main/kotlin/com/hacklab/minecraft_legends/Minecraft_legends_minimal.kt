@@ -3008,9 +3008,17 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                 return
             }
             Legend.WRAITH -> useWraithAbility(player)
-            Legend.LIFELINE -> useLifelineAbility(player)
+            Legend.LIFELINE -> {
+                useLifelineAbility(player)
+                // 金のリンゴが消費されないように補充
+                restoreLegendItem(player, legend)
+            }
             Legend.BANGALORE -> useBangaloreAbility(player)
-            Legend.GIBRALTAR -> useGibraltarAbility(player, event)
+            Legend.GIBRALTAR -> {
+                useGibraltarAbility(player, event)
+                // ファイヤーチャージが消費されないように補充
+                restoreLegendItem(player, legend)
+            }
         }
         
         // クールダウンを設定
@@ -3027,6 +3035,32 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             Legend.BANGALORE -> 30000 // 30秒
             Legend.GIBRALTAR -> 120000 // 120秒
         }
+    }
+    
+    // レジェンドアイテムを補充（消費されないようにする）
+    private fun restoreLegendItem(player: Player, legend: Legend) {
+        object : BukkitRunnable() {
+            override fun run() {
+                // アイテムが無くなっていたら再配布
+                var hasItem = false
+                for (item in player.inventory.contents) {
+                    if (item == null) continue
+                    val meta = item.itemMeta ?: continue
+                    val legendName = meta.persistentDataContainer.get(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING
+                    )
+                    if (legendName == legend.name) {
+                        hasItem = true
+                        break
+                    }
+                }
+                
+                if (!hasItem) {
+                    giveLegendItem(player, legend)
+                }
+            }
+        }.runTaskLater(this, 1L) // 次のtickで実行
     }
     
     // パスファインダー：グラップリングフック
@@ -3248,6 +3282,65 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                 org.bukkit.persistence.PersistentDataType.STRING
             )) {
                 drops.remove()
+            }
+        }
+    }
+    
+    // プレイヤーリスポーン時にレジェンドアイテムを再配布
+    @EventHandler
+    fun onPlayerRespawn(event: PlayerRespawnEvent) {
+        val player = event.player
+        
+        // ゲーム中のプレイヤーか確認
+        if (currentGame?.players?.contains(player.uniqueId) == true) {
+            // 少し遅延させてアイテムを配布（リスポーン直後は不安定なため）
+            object : BukkitRunnable() {
+                override fun run() {
+                    // テスト用：全てのレジェンドスキルアイテムを配布
+                    giveLegendItems(player, true)
+                }
+            }.runTaskLater(this, 10L) // 0.5秒後
+        }
+    }
+    
+    // レジェンドアイテム（金のリンゴ）が消費されないようにする
+    @EventHandler
+    fun onItemConsume(event: org.bukkit.event.player.PlayerItemConsumeEvent) {
+        val item = event.item
+        val meta = item.itemMeta ?: return
+        
+        // レジェンドアイテムか確認
+        if (meta.persistentDataContainer.has(
+            org.bukkit.NamespacedKey(this, "legend_item"),
+            org.bukkit.persistence.PersistentDataType.STRING
+        )) {
+            // 消費をキャンセル
+            event.isCancelled = true
+            
+            // 代わりにアビリティを使用
+            val player = event.player
+            val legendName = meta.persistentDataContainer.get(
+                org.bukkit.NamespacedKey(this, "legend_item"),
+                org.bukkit.persistence.PersistentDataType.STRING
+            )!!
+            
+            val legend = Legend.valueOf(legendName)
+            
+            // クールダウンチェック
+            val lastUsed = legendAbilityCooldowns[player.uniqueId] ?: 0L
+            val currentTime = System.currentTimeMillis()
+            val cooldownTime = getCooldownTime(legend)
+            
+            if (currentTime - lastUsed < cooldownTime) {
+                val remainingSeconds = ((cooldownTime - (currentTime - lastUsed)) / 1000)
+                player.sendActionBar("§cアビリティはクールダウン中です！ あと${remainingSeconds}秒")
+                return
+            }
+            
+            // ライフラインの場合のみアビリティを実行
+            if (legend == Legend.LIFELINE) {
+                useLifelineAbility(player)
+                legendAbilityCooldowns[player.uniqueId] = currentTime
             }
         }
     }
