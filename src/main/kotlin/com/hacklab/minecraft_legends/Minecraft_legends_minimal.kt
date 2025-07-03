@@ -3072,6 +3072,90 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         player.sendMessage("§bグラップリングフック準備完了！")
     }
     
+    // エンティティを特定の場所に引き寄せる（snowgearsスタイル）
+    private fun pullEntityToLocation(entity: org.bukkit.entity.Entity, location: org.bukkit.Location, hook: org.bukkit.entity.FishHook) {
+        val entityLocation = entity.location
+        val distance = entityLocation.distance(location)
+        
+        if (distance > maxHookDistance) {
+            if (entity is Player) {
+                entity.sendMessage("§c距離が遠すぎます！")
+            }
+            hook.remove()
+            return
+        }
+        
+        // snowgearsスタイルの速度計算
+        val dx = location.x - entityLocation.x
+        val dy = location.y - entityLocation.y
+        val dz = location.z - entityLocation.z
+        
+        // 時間係数（距離に基づく）
+        val time = distance / 10.0
+        
+        // 速度ベクトルの計算（重力を考慮）
+        var vx = dx / time
+        var vy = dy / time
+        var vz = dz / time
+        
+        // 重力補正
+        vy += 0.5 * 0.98 * time
+        
+        // 速度倍率を適用
+        vx *= velocityMultiplier
+        vy *= velocityMultiplier
+        vz *= velocityMultiplier
+        
+        // 垂直方向の調整
+        if (dy > 0.0) {
+            // 上方向への移動の場合、追加のブースト
+            vy += 0.25
+        }
+        
+        // 最大速度の制限
+        val maxVelocity = 4.0
+        val totalVelocity = kotlin.math.sqrt(vx * vx + vy * vy + vz * vz)
+        if (totalVelocity > maxVelocity) {
+            val scale = maxVelocity / totalVelocity
+            vx *= scale
+            vy *= scale
+            vz *= scale
+        }
+        
+        // 速度を適用
+        entity.velocity = org.bukkit.util.Vector(vx, vy, vz)
+        
+        // エフェクト
+        if (entity is Player) {
+            entity.sendMessage("§bグラップリング発動！")
+            entity.world.playSound(entity.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 1.0f)
+            
+            // パーティクルトレイル
+            object : BukkitRunnable() {
+                var ticks = 0
+                override fun run() {
+                    if (ticks >= 20 || entity.isOnGround) {
+                        cancel()
+                        return
+                    }
+                    
+                    entity.world.spawnParticle(
+                        org.bukkit.Particle.END_ROD,
+                        entity.location,
+                        5,
+                        0.2, 0.2, 0.2,
+                        0.05
+                    )
+                    ticks++
+                }
+            }.runTaskTimer(this, 0L, 2L)
+        }
+        
+        // フックを削除
+        hook.remove()
+        activeHooks.remove(entity.uniqueId)
+    }
+    
     // レイス：透明化
     private fun useWraithAbility(player: Player) {
         // 透明化
@@ -3334,12 +3418,10 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     // パスファインダーのフックメカニクス
     private val activeHooks = mutableMapOf<UUID, org.bukkit.entity.FishHook>()
-    private val hookCooldowns = mutableMapOf<UUID, Long>()
     
     // Grappling Hook設定（snowgearsスタイル）
-    private val velocityMultiplier = 2.5 // 引き寄せ速度係数
+    private val velocityMultiplier = 2.0 // 引き寄せ速度係数
     private val maxHookDistance = 30.0 // 最大フック距離
-    private val hookCooldown = 1000L // クールダウン（1秒）
     
     @EventHandler
     fun onPlayerFish(event: org.bukkit.event.player.PlayerFishEvent) {
@@ -3357,14 +3439,17 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         if (legendName != Legend.PATHFINDER.name) return
         
-        // デバッグ: イベント状態をログ
-        player.sendMessage("§7[DEBUG] Fish event state: ${event.state}")
-        
-        // 追加のデバッグ情報
-        if (event.state == org.bukkit.event.player.PlayerFishEvent.State.IN_GROUND || 
-            event.state == org.bukkit.event.player.PlayerFishEvent.State.FAILED_ATTEMPT) {
-            player.sendMessage("§7[DEBUG] Hook location: ${hook.location}")
-            player.sendMessage("§7[DEBUG] Hook valid: ${hook.isValid}")
+        // クールダウンチェック（共通）
+        val currentTime = System.currentTimeMillis()
+        val lastUsed = legendAbilityCooldowns[player.uniqueId] ?: 0L
+        if (currentTime - lastUsed < getCooldownTime(Legend.PATHFINDER)) {
+            val remaining = (getCooldownTime(Legend.PATHFINDER) - (currentTime - lastUsed)) / 1000.0
+            if (event.state != org.bukkit.event.player.PlayerFishEvent.State.FISHING) {
+                player.sendActionBar("§cグラップリングクールダウン: ${String.format("%.1f", remaining)}秒")
+                event.isCancelled = true
+                hook.remove()
+                return
+            }
         }
         
         when (event.state) {
@@ -3393,135 +3478,8 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             }
             
             org.bukkit.event.player.PlayerFishEvent.State.IN_GROUND -> {
-                // フックが地面に刺さった時（Apex Legendsスタイル - 自動で振り子運動開始）
-                val hookLocation = hook.location
-                val playerLocation = player.location
-                val distance = playerLocation.distance(hookLocation)
-                
-                // クールダウンチェック
-                val currentTime = System.currentTimeMillis()
-                val lastUsed = hookCooldowns[player.uniqueId] ?: 0L
-                if (currentTime - lastUsed < hookCooldown) {
-                    val remaining = (hookCooldown - (currentTime - lastUsed)) / 1000.0
-                    player.sendActionBar("§cグラップリングクールダウン: ${String.format("%.1f", remaining)}秒")
-                    hook.remove()
-                    return
-                }
-                
-                if (distance > maxHookDistance) {
-                    player.sendMessage("§c距離が遠すぎます！")
-                    hook.remove()
-                    return
-                }
-                
-                player.sendMessage("§bグラップリング接続！")
-                hookCooldowns[player.uniqueId] = currentTime
-                
-                // Apex Legends風の振り子運動を実装
-                object : BukkitRunnable() {
-                    var swingTicks = 0
-                    val maxSwingTicks = 60 // 3秒間の振り子運動
-                    val ropeLength = distance
-                    var lastLocation = player.location.clone()
-                    
-                    override fun run() {
-                        // フックが無効になったか、最大時間に達したら終了
-                        if (!hook.isValid || hook.isDead || swingTicks >= maxSwingTicks || !activeHooks.containsKey(player.uniqueId)) {
-                            if (hook.isValid) {
-                                hook.remove()
-                            }
-                            activeHooks.remove(player.uniqueId)
-                            cancel()
-                            return
-                        }
-                        
-                        val currentLocation = player.location
-                        val currentDistance = currentLocation.distance(hookLocation)
-                        
-                        // フックに十分近づいたら終了
-                        if (currentDistance < 2.0) {
-                            hook.remove()
-                            activeHooks.remove(player.uniqueId)
-                            player.sendMessage("§a到着！")
-                            cancel()
-                            return
-                        }
-                        
-                        // 振り子の物理演算
-                        val dx = hookLocation.x - currentLocation.x
-                        val dy = hookLocation.y - currentLocation.y
-                        val dz = hookLocation.z - currentLocation.z
-                        
-                        // ロープの張力を計算
-                        if (currentDistance > ropeLength) {
-                            // ロープが伸びすぎている場合、引き戻す
-                            val pullDirection = org.bukkit.util.Vector(dx, dy, dz).normalize()
-                            val pullStrength = (currentDistance - ropeLength) * 0.3
-                            player.velocity = player.velocity.add(pullDirection.multiply(pullStrength))
-                        }
-                        
-                        // 重力と振り子運動を適用
-                        val currentVelocity = player.velocity
-                        
-                        // 向心力を計算（振り子の中心に向かう力）
-                        val centripetalForce = org.bukkit.util.Vector(dx, dy, dz).normalize().multiply(0.15)
-                        
-                        // 初期加速（最初の数tickは強めに引っ張る）
-                        if (swingTicks < 10) {
-                            val initialPull = org.bukkit.util.Vector(dx, dy, dz).normalize().multiply(0.8)
-                            player.velocity = currentVelocity.add(initialPull).add(centripetalForce)
-                        } else {
-                            // 通常の振り子運動
-                            player.velocity = currentVelocity.multiply(0.98).add(centripetalForce)
-                        }
-                        
-                        // 上昇ボーナス（フックが上にある場合）
-                        if (dy > 5) {
-                            player.velocity = player.velocity.add(org.bukkit.util.Vector(0.0, 0.1, 0.0))
-                        }
-                        
-                        // ロープのパーティクル表示
-                        val particleCount = 15
-                        for (i in 0 until particleCount) {
-                            val progress = i.toDouble() / particleCount
-                            val particleLocation = currentLocation.clone().add(
-                                dx * progress,
-                                dy * progress + 1.0,
-                                dz * progress
-                            )
-                            player.world.spawnParticle(
-                                org.bukkit.Particle.DUST,
-                                particleLocation,
-                                1,
-                                org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 2.0f)
-                            )
-                        }
-                        
-                        // プレイヤーのトレイルエフェクト
-                        player.world.spawnParticle(
-                            org.bukkit.Particle.END_ROD,
-                            player.location.add(0.0, 1.0, 0.0),
-                            3,
-                            0.1, 0.1, 0.1,
-                            0.02
-                        )
-                        
-                        // 定期的なサウンド
-                        if (swingTicks % 20 == 0) {
-                            player.world.playSound(
-                                player.location,
-                                org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE,
-                                0.3f,
-                                1.5f
-                            )
-                        }
-                        
-                        lastLocation = currentLocation.clone()
-                        swingTicks++
-                    }
-                }.runTaskTimer(this, 0L, 1L) // 毎tick実行
-                
-                // レジェンドアビリティのクールダウンも設定
+                // フックが地面に刺さった時（snowgearsスタイル）
+                pullEntityToLocation(player, hook.location, hook)
                 legendAbilityCooldowns[player.uniqueId] = currentTime
             }
             
@@ -3573,47 +3531,12 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             
             org.bukkit.event.player.PlayerFishEvent.State.FAILED_ATTEMPT -> {
                 // フックが何かに当たった（IN_GROUNDの代わりにこれが呼ばれることがある）
-                player.sendMessage("§7[DEBUG] FAILED_ATTEMPT state detected")
-                
-                // IN_GROUNDと同じ処理を実行
-                val hookLocation = hook.location
-                val playerLocation = player.location
-                val distance = playerLocation.distance(hookLocation)
-                
-                // クールダウンチェック
-                val currentTime = System.currentTimeMillis()
-                val lastUsed = hookCooldowns[player.uniqueId] ?: 0L
-                if (currentTime - lastUsed < hookCooldown) {
-                    val remaining = (hookCooldown - (currentTime - lastUsed)) / 1000.0
-                    player.sendActionBar("§cグラップリングクールダウン: ${String.format("%.1f", remaining)}秒")
-                    hook.remove()
-                    return
-                }
-                
-                if (distance > maxHookDistance) {
-                    player.sendMessage("§c距離が遠すぎます！")
-                    hook.remove()
-                    return
-                }
-                
-                player.sendMessage("§bグラップリング接続！（FAILED_ATTEMPT経由）")
-                hookCooldowns[player.uniqueId] = currentTime
-                
-                // 即座に引き寄せる（シンプルなバージョン）
-                val direction = hookLocation.toVector().subtract(playerLocation.toVector()).normalize()
-                val power = kotlin.math.min(2.5, distance / 8.0)
-                player.velocity = direction.multiply(power).add(org.bukkit.util.Vector(0.0, 0.5, 0.0))
-                
-                hook.remove()
-                activeHooks.remove(player.uniqueId)
-                
-                player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 1.0f)
+                pullEntityToLocation(player, hook.location, hook)
                 legendAbilityCooldowns[player.uniqueId] = currentTime
             }
             
             else -> {
                 // その他の状態
-                player.sendMessage("§7[DEBUG] Other state: ${event.state}")
                 activeHooks.remove(player.uniqueId)
             }
         }
