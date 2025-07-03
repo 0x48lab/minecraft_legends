@@ -3003,7 +3003,10 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         // アビリティを実行
         when (legend) {
-            Legend.PATHFINDER -> usePathfinderAbility(player)
+            Legend.PATHFINDER -> {
+                // パスファインダーは釣竿の通常動作を使用するので、イベントをキャンセルしない
+                return
+            }
             Legend.WRAITH -> useWraithAbility(player)
             Legend.LIFELINE -> useLifelineAbility(player)
             Legend.BANGALORE -> useBangaloreAbility(player)
@@ -3028,35 +3031,8 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     // パスファインダー：グラップリングフック
     private fun usePathfinderAbility(player: Player) {
-        val targetBlock = player.getTargetBlock(null, 30)
-        if (targetBlock == null || targetBlock.type == Material.AIR) {
-            player.sendMessage("§cグラップルのターゲットが見つかりません！")
-            return
-        }
-        
-        val targetLocation = targetBlock.location.add(0.5, 1.0, 0.5)
-        val playerLocation = player.location
-        
-        // グラップルの軌道をパーティクルで表示
-        val distance = playerLocation.distance(targetLocation)
-        val direction = targetLocation.toVector().subtract(playerLocation.toVector()).normalize()
-        
-        for (i in 0..distance.toInt()) {
-            val particleLocation = playerLocation.clone().add(direction.multiply(i))
-            player.world.spawnParticle(
-                org.bukkit.Particle.DUST,
-                particleLocation,
-                1,
-                org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 1.0f)
-            )
-        }
-        
-        // プレイヤーを引き寄せる
-        player.velocity = direction.multiply(2.5)
-        player.sendMessage("§bグラップリングフック使用！")
-        
-        // サウンド効果
-        player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 1.0f)
+        // 釣竿の通常動作を許可（フックを投げる）
+        player.sendMessage("§bグラップリングフック準備完了！")
     }
     
     // レイス：透明化
@@ -3272,6 +3248,141 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                 org.bukkit.persistence.PersistentDataType.STRING
             )) {
                 drops.remove()
+            }
+        }
+    }
+    
+    // パスファインダーのフックメカニクス
+    private val activeHooks = mutableMapOf<UUID, org.bukkit.entity.FishHook>()
+    
+    @EventHandler
+    fun onPlayerFish(event: org.bukkit.event.player.PlayerFishEvent) {
+        val player = event.player
+        val hook = event.hook
+        
+        // パスファインダーのレジェンドアイテムか確認
+        val item = player.inventory.itemInMainHand
+        val meta = item.itemMeta ?: return
+        
+        val legendName = meta.persistentDataContainer.get(
+            org.bukkit.NamespacedKey(this, "legend_item"),
+            org.bukkit.persistence.PersistentDataType.STRING
+        ) ?: return
+        
+        if (legendName != Legend.PATHFINDER.name) return
+        
+        when (event.state) {
+            org.bukkit.event.player.PlayerFishEvent.State.FISHING -> {
+                // フックを投げた時
+                activeHooks[player.uniqueId] = hook
+                player.sendMessage("§bグラップリングフック発射！")
+                
+                // フックの見た目を強化
+                object : BukkitRunnable() {
+                    override fun run() {
+                        if (!hook.isValid || hook.isDead) {
+                            cancel()
+                            return
+                        }
+                        
+                        // フックの軌跡にパーティクル
+                        hook.world.spawnParticle(
+                            org.bukkit.Particle.DUST,
+                            hook.location,
+                            1,
+                            org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 1.0f)
+                        )
+                    }
+                }.runTaskTimer(this, 0L, 2L)
+            }
+            
+            org.bukkit.event.player.PlayerFishEvent.State.IN_GROUND -> {
+                // フックが地面に刺さった時
+                event.isCancelled = true
+                
+                // クールダウンチェック
+                val lastUsed = legendAbilityCooldowns[player.uniqueId] ?: 0L
+                val currentTime = System.currentTimeMillis()
+                val cooldownTime = getCooldownTime(Legend.PATHFINDER)
+                
+                if (currentTime - lastUsed < cooldownTime) {
+                    val remainingSeconds = ((cooldownTime - (currentTime - lastUsed)) / 1000)
+                    player.sendActionBar("§cグラップリングフックはクールダウン中！ あと${remainingSeconds}秒")
+                    return
+                }
+                
+                val hookLocation = hook.location
+                val playerLocation = player.location
+                val distance = playerLocation.distance(hookLocation)
+                
+                if (distance > 30) {
+                    player.sendMessage("§c距離が遠すぎます！")
+                    return
+                }
+                
+                // プレイヤーをフックの位置に引き寄せる
+                val direction = hookLocation.toVector().subtract(playerLocation.toVector()).normalize()
+                
+                // 引き寄せる力を計算（距離に応じて調整）
+                val power = kotlin.math.min(3.0, distance / 10.0)
+                player.velocity = direction.multiply(power).add(org.bukkit.util.Vector(0.0, 0.4, 0.0))
+                
+                // エフェクト
+                player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 0.8f)
+                
+                // パーティクルの軌跡
+                object : BukkitRunnable() {
+                    var count = 0
+                    override fun run() {
+                        if (count >= 10) {
+                            cancel()
+                            return
+                        }
+                        
+                        val particleLocation = player.location.add(0.0, 1.0, 0.0)
+                        player.world.spawnParticle(
+                            org.bukkit.Particle.END_ROD,
+                            particleLocation,
+                            5,
+                            0.3, 0.3, 0.3,
+                            0.05
+                        )
+                        count++
+                    }
+                }.runTaskTimer(this, 0L, 2L)
+                
+                player.sendMessage("§bグラップリング成功！")
+                legendAbilityCooldowns[player.uniqueId] = currentTime
+            }
+            
+            org.bukkit.event.player.PlayerFishEvent.State.REEL_IN -> {
+                // リールを巻いた時（右クリック）
+                if (activeHooks.containsKey(player.uniqueId)) {
+                    val activeHook = activeHooks[player.uniqueId]
+                    if (activeHook != null && activeHook.isValid && !activeHook.isDead) {
+                        // フックが何かに刺さっている場合
+                        val hookLocation = activeHook.location
+                        val block = hookLocation.block
+                        
+                        if (block.type != Material.AIR) {
+                            // ブロックに刺さっている場合、そこに向かって移動
+                            val playerLocation = player.location
+                            val direction = hookLocation.toVector().subtract(playerLocation.toVector()).normalize()
+                            val distance = playerLocation.distance(hookLocation)
+                            val power = kotlin.math.min(2.5, distance / 12.0)
+                            
+                            player.velocity = direction.multiply(power).add(org.bukkit.util.Vector(0.0, 0.3, 0.0))
+                            player.sendMessage("§bリール引き寄せ！")
+                            player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 1.2f)
+                        }
+                    }
+                    activeHooks.remove(player.uniqueId)
+                }
+            }
+            
+            else -> {
+                // その他の状態
+                activeHooks.remove(player.uniqueId)
             }
         }
     }
