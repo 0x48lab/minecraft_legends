@@ -281,6 +281,12 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                 activateLifelineAbility(sender)
                 legendAbilityCooldowns[sender.uniqueId] = currentTime
             }
+            Legend.BANGALORE -> {
+                sender.sendMessage("§7Bangalore uses smoke launcher!")
+            }
+            Legend.GIBRALTAR -> {
+                sender.sendMessage("§cGibraltar uses defensive bombardment!")
+            }
         }
     }
     
@@ -2074,6 +2080,12 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             Legend.LIFELINE -> {
                 player.sendMessage("§aLifeline abilities activated! Use /br ability to deploy D.O.C. heal drone.")
             }
+            Legend.BANGALORE -> {
+                player.sendMessage("§7Bangalore abilities activated! Professional soldier ready.")
+            }
+            Legend.GIBRALTAR -> {
+                player.sendMessage("§cGibraltar abilities activated! Defensive bombardment ready.")
+            }
         }
         
         player.health = player.maxHealth
@@ -3216,7 +3228,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                         
                         // パーティクル効果
                         bombLocation.world?.spawnParticle(
-                            org.bukkit.Particle.EXPLOSION_HUGE,
+                            org.bukkit.Particle.EXPLOSION_LARGE,
                             bombLocation,
                             1
                         )
