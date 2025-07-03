@@ -1597,7 +1597,100 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             player.removePotionEffect(effect.type)
         }
         
-        // 仕様通り、スタート時はアイテムなし（後にスキルアイテムを追加予定）
+        // テスト用：全てのレジェンドスキルアイテムを配布
+        giveLegendItems(player, true)
+    }
+    
+    // レジェンドアイテムを配布
+    private fun giveLegendItems(player: Player, allLegends: Boolean = false) {
+        if (allLegends) {
+            // テスト用：全てのレジェンドアイテムを配布
+            giveLegendItem(player, Legend.PATHFINDER)
+            giveLegendItem(player, Legend.WRAITH)
+            giveLegendItem(player, Legend.LIFELINE)
+            giveLegendItem(player, Legend.BANGALORE)
+            giveLegendItem(player, Legend.GIBRALTAR)
+        } else {
+            // 通常：選択されたレジェンドのアイテムのみ配布
+            val legend = playerLegends[player.uniqueId] ?: return
+            giveLegendItem(player, legend)
+        }
+    }
+    
+    // 個別のレジェンドアイテムを配布
+    private fun giveLegendItem(player: Player, legend: Legend) {
+        val item = when (legend) {
+            Legend.PATHFINDER -> ItemStack(Material.FISHING_ROD).apply {
+                val meta = itemMeta!!
+                meta.setDisplayName("§b§lGrappling Hook")
+                meta.lore = listOf(
+                    "§7Pathfinder's tactical ability",
+                    "§7Right-click to grapple!",
+                    "§7Cooldown: 15 seconds"
+                )
+                meta.isUnbreakable = true
+                itemMeta = meta
+            }
+            
+            Legend.WRAITH -> ItemStack(Material.ENDER_EYE).apply {
+                val meta = itemMeta!!
+                meta.setDisplayName("§5§lVoid Walk")
+                meta.lore = listOf(
+                    "§7Wraith's tactical ability",
+                    "§7Right-click to phase!",
+                    "§7Duration: 3 seconds",
+                    "§7Cooldown: 25 seconds"
+                )
+                itemMeta = meta
+            }
+            
+            Legend.LIFELINE -> ItemStack(Material.GOLDEN_APPLE).apply {
+                val meta = itemMeta!!
+                meta.setDisplayName("§a§lD.O.C. Heal Drone")
+                meta.lore = listOf(
+                    "§7Lifeline's tactical ability",
+                    "§7Right-click to deploy healing drone!",
+                    "§7Heals nearby players",
+                    "§7Cooldown: 45 seconds"
+                )
+                itemMeta = meta
+            }
+            
+            Legend.BANGALORE -> ItemStack(Material.IRON_BLOCK).apply {
+                val meta = itemMeta!!
+                meta.setDisplayName("§7§lDome Shield")
+                meta.lore = listOf(
+                    "§7Bangalore's tactical ability",
+                    "§7Right-click to deploy dome shield!",
+                    "§7Creates protective dome",
+                    "§7Cooldown: 30 seconds"
+                )
+                itemMeta = meta
+            }
+            
+            Legend.GIBRALTAR -> ItemStack(Material.FIRE_CHARGE).apply {
+                val meta = itemMeta!!
+                meta.setDisplayName("§c§lDefensive Bombardment")
+                meta.lore = listOf(
+                    "§7Gibraltar's tactical ability",
+                    "§7Right-click to call airstrike!",
+                    "§7Marks location for bombardment",
+                    "§7Cooldown: 120 seconds"
+                )
+                itemMeta = meta
+            }
+        }
+        
+        // アイテムにカスタムタグを追加（ドロップ防止用）
+        item.itemMeta = item.itemMeta?.apply {
+            persistentDataContainer.set(
+                org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                org.bukkit.persistence.PersistentDataType.STRING,
+                legend.name
+            )
+        }
+        
+        player.inventory.addItem(item)
     }
     
     
@@ -2858,6 +2951,316 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         }
         return null
     }
+    
+    // レジェンドアビリティのイベントハンドラー
+    @EventHandler
+    fun onLegendAbilityUse(event: PlayerInteractEvent) {
+        val player = event.player
+        val item = event.item ?: return
+        
+        // 右クリックのみ反応
+        if (event.action != org.bukkit.event.block.Action.RIGHT_CLICK_AIR && 
+            event.action != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+            return
+        }
+        
+        // レジェンドアイテムか確認
+        val meta = item.itemMeta ?: return
+        val legendName = meta.persistentDataContainer.get(
+            org.bukkit.NamespacedKey(this, "legend_item"),
+            org.bukkit.persistence.PersistentDataType.STRING
+        ) ?: return
+        
+        val legend = try {
+            Legend.valueOf(legendName)
+        } catch (e: IllegalArgumentException) {
+            return
+        }
+        
+        // クールダウンチェック
+        val cooldownKey = player.uniqueId.toString() + "_" + legend.name
+        val lastUsed = legendAbilityCooldowns[player.uniqueId] ?: 0L
+        val currentTime = System.currentTimeMillis()
+        val cooldownTime = getCooldownTime(legend)
+        
+        if (currentTime - lastUsed < cooldownTime) {
+            val remainingSeconds = ((cooldownTime - (currentTime - lastUsed)) / 1000)
+            player.sendActionBar("§cアビリティはクールダウン中です！ あと${remainingSeconds}秒")
+            return
+        }
+        
+        // アビリティを実行
+        when (legend) {
+            Legend.PATHFINDER -> usePathfinderAbility(player)
+            Legend.WRAITH -> useWraithAbility(player)
+            Legend.LIFELINE -> useLifelineAbility(player)
+            Legend.BANGALORE -> useBangaloreAbility(player)
+            Legend.GIBRALTAR -> useGibraltarAbility(player, event)
+        }
+        
+        // クールダウンを設定
+        legendAbilityCooldowns[player.uniqueId] = currentTime
+        
+        event.isCancelled = true
+    }
+    
+    private fun getCooldownTime(legend: Legend): Long {
+        return when (legend) {
+            Legend.PATHFINDER -> 15000 // 15秒
+            Legend.WRAITH -> 25000 // 25秒
+            Legend.LIFELINE -> 45000 // 45秒
+            Legend.BANGALORE -> 30000 // 30秒
+            Legend.GIBRALTAR -> 120000 // 120秒
+        }
+    }
+    
+    // パスファインダー：グラップリングフック
+    private fun usePathfinderAbility(player: Player) {
+        val targetBlock = player.getTargetBlock(null, 30)
+        if (targetBlock == null || targetBlock.type == Material.AIR) {
+            player.sendMessage("§cグラップルのターゲットが見つかりません！")
+            return
+        }
+        
+        val targetLocation = targetBlock.location.add(0.5, 1.0, 0.5)
+        val playerLocation = player.location
+        
+        // グラップルの軌道をパーティクルで表示
+        val distance = playerLocation.distance(targetLocation)
+        val direction = targetLocation.toVector().subtract(playerLocation.toVector()).normalize()
+        
+        for (i in 0..distance.toInt()) {
+            val particleLocation = playerLocation.clone().add(direction.multiply(i))
+            player.world.spawnParticle(
+                org.bukkit.Particle.DUST,
+                particleLocation,
+                1,
+                org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 1.0f)
+            )
+        }
+        
+        // プレイヤーを引き寄せる
+        player.velocity = direction.multiply(2.5)
+        player.sendMessage("§bグラップリングフック使用！")
+        
+        // サウンド効果
+        player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 1.0f)
+    }
+    
+    // レイス：透明化
+    private fun useWraithAbility(player: Player) {
+        // 透明化
+        player.addPotionEffect(
+            org.bukkit.potion.PotionEffect(
+                org.bukkit.potion.PotionEffectType.INVISIBILITY,
+                60, // 3秒
+                0,
+                false,
+                false
+            )
+        )
+        
+        // 移動速度上昇
+        player.addPotionEffect(
+            org.bukkit.potion.PotionEffect(
+                org.bukkit.potion.PotionEffectType.SPEED,
+                60, // 3秒
+                1,
+                false,
+                false
+            )
+        )
+        
+        // パーティクル効果
+        object : BukkitRunnable() {
+            var ticks = 0
+            override fun run() {
+                if (ticks >= 60) {
+                    cancel()
+                    return
+                }
+                
+                player.world.spawnParticle(
+                    org.bukkit.Particle.DRAGON_BREATH,
+                    player.location.add(0.0, 1.0, 0.0),
+                    5,
+                    0.5, 0.5, 0.5,
+                    0.01
+                )
+                
+                ticks += 5
+            }
+        }.runTaskTimer(this, 0L, 5L)
+        
+        player.sendMessage("§5ヴォイドウォーク発動！")
+        player.world.playSound(player.location, org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.5f)
+    }
+    
+    // ライフライン：回復ドローン
+    private fun useLifelineAbility(player: Player) {
+        val droneLocation = player.location.add(0.0, 2.0, 0.0)
+        
+        // ドローンの表示（エンドクリスタル）
+        val drone = player.world.spawnEntity(droneLocation, org.bukkit.entity.EntityType.END_CRYSTAL) as org.bukkit.entity.EnderCrystal
+        drone.isShowingBottom = false
+        drone.isInvulnerable = true
+        
+        // 回復効果
+        object : BukkitRunnable() {
+            var duration = 0
+            override fun run() {
+                if (duration >= 100 || drone.isDead) { // 5秒間
+                    drone.remove()
+                    cancel()
+                    return
+                }
+                
+                // 範囲内のプレイヤーを回復
+                player.getNearbyEntities(5.0, 5.0, 5.0)
+                    .filterIsInstance<Player>()
+                    .plus(player)
+                    .filter { it.gameMode == org.bukkit.GameMode.SURVIVAL }
+                    .forEach { p ->
+                        if (p.health < p.healthScale * 2) {
+                            p.health = kotlin.math.min(p.health + 1.0, p.healthScale * 2)
+                        }
+                    }
+                
+                // 回復パーティクル
+                player.world.spawnParticle(
+                    org.bukkit.Particle.HEART,
+                    droneLocation,
+                    3,
+                    2.0, 2.0, 2.0,
+                    0.0
+                )
+                
+                duration += 10
+            }
+        }.runTaskTimer(this, 0L, 10L)
+        
+        player.sendMessage("§aD.O.C.ヒールドローン展開！")
+        player.world.playSound(player.location, org.bukkit.Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.5f)
+    }
+    
+    // バンガロール：ドームシールド
+    private fun useBangaloreAbility(player: Player) {
+        val center = player.location
+        val radius = 5
+        
+        // ドームを作成
+        for (x in -radius..radius) {
+            for (y in -1..radius) {
+                for (z in -radius..radius) {
+                    val distance = kotlin.math.sqrt((x*x + y*y + z*z).toDouble())
+                    if (distance >= radius - 0.5 && distance <= radius + 0.5) {
+                        val blockLocation = center.clone().add(x.toDouble(), y.toDouble(), z.toDouble())
+                        if (blockLocation.block.type == Material.AIR) {
+                            // バリアブロックを配置
+                            blockLocation.block.type = Material.WHITE_STAINED_GLASS
+                            
+                            // 20秒後に消去
+                            object : BukkitRunnable() {
+                                override fun run() {
+                                    if (blockLocation.block.type == Material.WHITE_STAINED_GLASS) {
+                                        blockLocation.block.type = Material.AIR
+                                    }
+                                }
+                            }.runTaskLater(this, 400L) // 20秒
+                        }
+                    }
+                }
+            }
+        }
+        
+        player.sendMessage("§7ドームシールド展開！")
+        player.world.playSound(player.location, org.bukkit.Sound.BLOCK_IRON_DOOR_CLOSE, 1.0f, 0.5f)
+    }
+    
+    // ジブラルタル：空爆
+    private fun useGibraltarAbility(player: Player, event: PlayerInteractEvent) {
+        // クリックした場所を取得
+        val targetLocation = if (event.action == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+            event.clickedBlock?.location?.add(0.5, 1.0, 0.5)
+        } else {
+            player.getTargetBlock(null, 50)?.location?.add(0.5, 1.0, 0.5)
+        }
+        
+        if (targetLocation == null) {
+            player.sendMessage("§cターゲットが見つかりません！")
+            return
+        }
+        
+        // マーカーを表示
+        player.sendMessage("§c空爆を要請！ 着弾まで3秒...")
+        
+        // 3秒後に爆撃開始
+        object : BukkitRunnable() {
+            override fun run() {
+                // 爆撃を数回に分けて実行
+                var bombCount = 0
+                object : BukkitRunnable() {
+                    override fun run() {
+                        if (bombCount >= 6) {
+                            cancel()
+                            return
+                        }
+                        
+                        // ランダムな位置に爆発
+                        val randomX = targetLocation.x + (Math.random() - 0.5) * 10
+                        val randomZ = targetLocation.z + (Math.random() - 0.5) * 10
+                        val bombLocation = org.bukkit.Location(targetLocation.world, randomX, targetLocation.y, randomZ)
+                        
+                        // 爆発効果
+                        bombLocation.world?.createExplosion(bombLocation, 3.0f, false, false)
+                        
+                        // パーティクル効果
+                        bombLocation.world?.spawnParticle(
+                            org.bukkit.Particle.EXPLOSION_HUGE,
+                            bombLocation,
+                            1
+                        )
+                        
+                        bombCount++
+                    }
+                }.runTaskTimer(this@Minecraft_legends_minimal, 0L, 10L)
+            }
+        }.runTaskLater(this, 60L) // 3秒後
+        
+        player.world.playSound(player.location, org.bukkit.Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1.0f, 0.5f)
+    }
+    
+    // レジェンドアイテムのドロップを防ぐ
+    @EventHandler
+    fun onItemDrop(event: org.bukkit.event.player.PlayerDropItemEvent) {
+        val item = event.itemDrop.itemStack
+        val meta = item.itemMeta ?: return
+        
+        if (meta.persistentDataContainer.has(
+            org.bukkit.NamespacedKey(this, "legend_item"),
+            org.bukkit.persistence.PersistentDataType.STRING
+        )) {
+            event.isCancelled = true
+            event.player.sendMessage("§cレジェンドアイテムはドロップできません！")
+        }
+    }
+    
+    // レジェンドアイテムが死亡時にドロップされないように
+    @EventHandler
+    fun onPlayerDeathLegend(event: PlayerDeathEvent) {
+        val drops = event.drops.iterator()
+        while (drops.hasNext()) {
+            val item = drops.next()
+            val meta = item.itemMeta ?: continue
+            
+            if (meta.persistentDataContainer.has(
+                org.bukkit.NamespacedKey(this, "legend_item"),
+                org.bukkit.persistence.PersistentDataType.STRING
+            )) {
+                drops.remove()
+            }
+        }
+    }
 }
 
 data class BattleRoyaleGame(
@@ -2898,7 +3301,9 @@ enum class GameState {
 enum class Legend(val displayName: String, val description: String) {
     PATHFINDER("§b§lPathfinder", "Grappling hook mobility"),
     WRAITH("§5§lWraith", "Void walk invisibility"),  
-    LIFELINE("§a§lLifeline", "Combat medic");
+    LIFELINE("§a§lLifeline", "Combat medic"),
+    BANGALORE("§7§lBangalore", "Professional soldier with dome shield"),
+    GIBRALTAR("§c§lGibraltar", "Shielded fortress with airstrike");
     
     companion object {
         fun fromOrdinal(ordinal: Int): Legend? = values().getOrNull(ordinal)
