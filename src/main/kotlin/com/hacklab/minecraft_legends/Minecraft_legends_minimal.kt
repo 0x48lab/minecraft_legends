@@ -1251,6 +1251,9 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             Bukkit.getScheduler().runTaskLater(this, Runnable {
                 player.gameMode = org.bukkit.GameMode.SPECTATOR
                 player.sendMessage("§7You are now spectating the Battle Royale!")
+                
+                // レジェンドアイテムを再配布（スペクテーターでも持っておく）
+                giveLegendItems(player, true)
             }, 1L)
         }
     }
@@ -3286,22 +3289,6 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         }
     }
     
-    // プレイヤーリスポーン時にレジェンドアイテムを再配布
-    @EventHandler
-    fun onPlayerRespawn(event: PlayerRespawnEvent) {
-        val player = event.player
-        
-        // ゲーム中のプレイヤーか確認
-        if (currentGame?.players?.contains(player.uniqueId) == true) {
-            // 少し遅延させてアイテムを配布（リスポーン直後は不安定なため）
-            object : BukkitRunnable() {
-                override fun run() {
-                    // テスト用：全てのレジェンドスキルアイテムを配布
-                    giveLegendItems(player, true)
-                }
-            }.runTaskLater(this, 10L) // 0.5秒後
-        }
-    }
     
     // レジェンドアイテム（金のリンゴ）が消費されないようにする
     @EventHandler
