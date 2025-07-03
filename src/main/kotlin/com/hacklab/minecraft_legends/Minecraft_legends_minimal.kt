@@ -427,37 +427,48 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         // 統計初期化
         initializeGameStats()
         
-        // リング初期化
-        initializeRing()
-        
         // Create game world
         createGameWorld(currentGame!!.worldName)
         
-        // Teleport all players to overworld spawn and set spectator mode for testing
-        val world = Bukkit.getWorlds()[0] // メインのオーバーワールド
+        // リング初期化とWorldBorder設定を先に行う
+        initializeRing()
+        
+        // WorldBorderを設定（teleportの前に必ず実行）
+        val world = Bukkit.getWorlds()[0]
+        val worldBorder = world.worldBorder
+        
+        // WorldBorderの初期設定
+        val spawnLocation = world.spawnLocation
+        worldBorder.center = spawnLocation
+        worldBorder.size = 3000.0 // 初期サイズ 3000x3000
+        worldBorder.damageAmount = 0.0 // WorldBorderのダメージは無効化（カスタム実装を使用）
+        worldBorder.damageBuffer = 0.0 // バッファなし
+        worldBorder.warningDistance = 50 // 警告距離50ブロック
+        worldBorder.warningTime = 30 // 警告時間30秒
+        
+        logger.info("WorldBorder initialized - Center: (${spawnLocation.x}, ${spawnLocation.z}), Size: ${worldBorder.size}")
+        
+        // WorldBorderが設定されたことを確認してからチームをテレポート
+        teleportTeamsToRandomLocations()
+        
+        // 全プレイヤーを初期化
         currentGame!!.players.forEach { playerId ->
             val player = Bukkit.getPlayer(playerId)
             if (player != null) {
-                // オーバーワールドのスポーン地点にテレポート
-                val spawnLocation = world.spawnLocation.clone()
-                spawnLocation.y = world.getHighestBlockYAt(spawnLocation) + 10.0 // 地面より少し上
-                player.teleport(spawnLocation)
-                player.gameMode = org.bukkit.GameMode.SURVIVAL
-                
-                // スターターキットを配布
-                giveStarterKit(player)
-                
+                // プレイヤーを初期化
+                initializePlayerForGame(player)
                 
                 player.sendMessage("§aThe Battle Royale has begun!")
-                player.sendMessage("§7Beacons placed in overworld around spawn!")
-                player.sendMessage("§7Use command: §e/bradmin beacons §7to see beacon locations")
+                player.sendMessage("§7Your team has been deployed to a random location!")
+                player.sendMessage("§7Find weapons and survive!")
             }
         }
         
         // Start ring shrinking timer
         startRingShrinking()
         
-        // WorldBorderが自動的にダメージを処理するため、カスタムダメージ監視は不要
+        // カスタムダメージ監視を開始
+        startCustomBorderDamage()
         
         // Start supply box spawning
         startSupplyBoxSpawning()
@@ -788,19 +799,14 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         val world = Bukkit.getWorlds()[0]
         val worldBorder = world.worldBorder
         
-        // WorldBorderの初期設定
-        val spawnLocation = world.spawnLocation
-        worldBorder.center = spawnLocation
-        worldBorder.size = 3000.0 // 初期サイズ 3000x3000
-        worldBorder.damageAmount = 0.1 // 初期ダメージ（フェーズ1と同じ）
-        worldBorder.damageBuffer = 5.0 // 5ブロックのバッファ
-        worldBorder.warningDistance = 50 // 警告距離50ブロック
-        worldBorder.warningTime = 30 // 警告時間30秒
+        // WorldBorderはすでにstartGameで初期化されているので、
+        // ここでは現在の設定を確認するだけ
+        logger.info("Starting ring shrinking - Current border size: ${worldBorder.size}, Center: (${worldBorder.center.x}, ${worldBorder.center.z})")
         
         // 現在位置を記録
-        ringCenter = spawnLocation
-        currentRingCenter = spawnLocation
-        currentRingRadius = 1500.0 // 半径は直径の半分
+        ringCenter = worldBorder.center
+        currentRingCenter = worldBorder.center
+        currentRingRadius = worldBorder.size / 2.0 // 半径は直径の半分
                 
         
         // リングフェーズごとの縮小スケジュール
@@ -863,8 +869,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                         worldBorder.setSize(phase.endRadius * 2, phase.shrinkTime.toLong())
                         currentRingRadius = phase.endRadius
                         
-                        // フェーズに応じたダメージ設定
-                        worldBorder.damageAmount = phase.damage
+                        // WorldBorderのダメージは0のまま（カスタム実装を使用）
                         
                         // 縮小開始を通知
                         currentGame!!.players.forEach { playerId ->
@@ -888,10 +893,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                         isRingShrinking = false
                         shrinkTicks = 0
                         
-                        // 次のフェーズのダメージ設定
-                        if (phaseIndex < ringPhases.size) {
-                            worldBorder.damageAmount = ringPhases[phaseIndex].damage
-                        }
+                        // WorldBorderのダメージは0のまま（カスタム実装を使用）
                         
                         // フェーズ完了を通知
                         currentGame!!.players.forEach { playerId ->
@@ -904,12 +906,62 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         }.runTaskTimer(this, 0L, 1L).taskId // 毎ティック実行
     }
     
-    // WorldBorderが自動的にダメージを処理するため、この関数は不要
-    /*
-    private fun startRingDamageMonitoring() {
-        // 削除済み - WorldBorderのdamageAmountで自動処理
+    private fun startCustomBorderDamage() {
+        // カスタムダメージシステム - 毎秒実行
+        object : BukkitRunnable() {
+            override fun run() {
+                if (currentGame == null || currentGame!!.state != GameState.ACTIVE) {
+                    cancel()
+                    return
+                }
+                
+                val world = Bukkit.getWorlds()[0]
+                val worldBorder = world.worldBorder
+                val centerX = worldBorder.center.x
+                val centerZ = worldBorder.center.z
+                val borderRadius = worldBorder.size / 2.0
+                
+                // 現在のフェーズのダメージを取得
+                val currentPhase = if (currentRingPhase < ringPhases.size) {
+                    ringPhases[currentRingPhase]
+                } else {
+                    null
+                }
+                
+                currentGame!!.players.forEach { playerId ->
+                    val player = Bukkit.getPlayer(playerId) ?: return@forEach
+                    if (player.isDead) return@forEach
+                    
+                    val playerX = player.location.x
+                    val playerZ = player.location.z
+                    
+                    // プレイヤーとボーダー中心との距離を計算
+                    val distanceFromCenter = kotlin.math.sqrt(
+                        (playerX - centerX) * (playerX - centerX) + 
+                        (playerZ - centerZ) * (playerZ - centerZ)
+                    )
+                    
+                    // ボーダー外にいるかチェック（単純な判定）
+                    if (distanceFromCenter > borderRadius) {
+                        // ボーダー外にいる場合、フェーズに応じたダメージを与える
+                        if (currentPhase != null && player.gameMode == org.bukkit.GameMode.SURVIVAL) {
+                            player.damage(currentPhase.damage)
+                            
+                            // ダメージ表示
+                            val outsideDistance = (distanceFromCenter - borderRadius).toInt()
+                            player.sendActionBar("§c⚠ OUTSIDE BORDER - ${outsideDistance}m from safe zone (${currentPhase.damage} damage/s)")
+                        }
+                    } else {
+                        // 安全地帯にいる場合
+                        val safeDistance = (borderRadius - distanceFromCenter).toInt()
+                        if (safeDistance < 50) {
+                            player.sendActionBar("§e⚠ BORDER NEARBY - ${safeDistance}m to border")
+                        }
+                    }
+                }
+            }
+        }.runTaskTimer(this, 0L, 20L) // 毎秒（20ティック）実行
     }
-    */
     
     // 安全地帯からリング境界を見る
     private fun showRingBoundaryForSafePlayer(player: Player, distanceToEdge: Double) {
@@ -1381,28 +1433,118 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         currentGame = null
     }
     
-    private fun giveStarterKit(player: Player) {
+    private fun teleportTeamsToRandomLocations() {
+        val world = Bukkit.getWorlds()[0]
+        val worldBorder = world.worldBorder
+        val centerX = worldBorder.center.x
+        val centerZ = worldBorder.center.z
+        
+        // 現在のWorldBorderサイズを取得（初期は3000）
+        val currentBorderSize = worldBorder.size
+        val borderRadius = currentBorderSize / 2.0
+        
+        // 安全マージンを考慮して60%以内に配置（より安全に）
+        val safeRadius = borderRadius * 0.6
+        
+        logger.info("Teleporting teams - Border center: ($centerX, $centerZ), Border size: $currentBorderSize, Safe radius: $safeRadius")
+        
+        // チームごとにテレポート
+        teams.forEach { (teamId, team) ->
+            val teamPlayers = team.members.mapNotNull { Bukkit.getPlayer(it) }
+            if (teamPlayers.isEmpty()) return@forEach
+            
+            // 安全な位置が見つかるまでリトライ
+            var attempts = 0
+            var teamX: Double
+            var teamZ: Double
+            
+            do {
+                // ランダムな角度を生成
+                val angle = Math.random() * 2 * Math.PI
+                
+                // ランダムな距離（中心から離れた位置だが、境界内に確実に収まる）
+                val distance = safeRadius * (0.3 + Math.random() * 0.6) // 安全半径の30%〜90%の範囲
+                
+                // チームのスポーン位置を計算
+                teamX = centerX + distance * Math.cos(angle)
+                teamZ = centerZ + distance * Math.sin(angle)
+                
+                // 境界内かチェック
+                val distanceFromCenter = Math.sqrt(Math.pow(teamX - centerX, 2.0) + Math.pow(teamZ - centerZ, 2.0))
+                
+                attempts++
+                if (distanceFromCenter < borderRadius - 50) { // 50ブロックの余裕を持って境界内
+                    break
+                }
+            } while (attempts < 10)
+            
+            // チームメンバーを近くに配置
+            teamPlayers.forEachIndexed { index, player ->
+                // チームメンバーは10ブロック以内に配置
+                val offsetX = (Math.random() - 0.5) * 10
+                val offsetZ = (Math.random() - 0.5) * 10
+                
+                val x = teamX + offsetX
+                val z = teamZ + offsetZ
+                
+                // 最終的な位置が境界内か確認
+                val finalDistance = Math.sqrt(Math.pow(x - centerX, 2.0) + Math.pow(z - centerZ, 2.0))
+                
+                // 境界外の場合は補正
+                val finalX = if (finalDistance > borderRadius - 30) {
+                    centerX + (x - centerX) * (borderRadius - 30) / finalDistance
+                } else x
+                
+                val finalZ = if (finalDistance > borderRadius - 30) {
+                    centerZ + (z - centerZ) * (borderRadius - 30) / finalDistance
+                } else z
+                
+                val y = world.getHighestBlockYAt(finalX.toInt(), finalZ.toInt()) + 2.0
+                
+                val spawnLocation = org.bukkit.Location(world, finalX, y, finalZ)
+                player.teleport(spawnLocation)
+                
+                // チーム情報と境界までの距離を表示
+                val spawnDistance = Math.sqrt(Math.pow(finalX - centerX, 2.0) + Math.pow(finalZ - centerZ, 2.0))
+                val distanceToBorder = borderRadius - spawnDistance
+                
+                player.sendMessage("§aYou have been deployed with team §e${team.name}§a!")
+                player.sendMessage("§7Location: X:${finalX.toInt()} Y:${y.toInt()} Z:${finalZ.toInt()}")
+                player.sendMessage("§7Distance to border: §e${distanceToBorder.toInt()} blocks")
+            }
+            
+            logger.info("Team ${team.name} deployed at X:${teamX.toInt()} Z:${teamZ.toInt()} (${attempts} attempts)")
+        }
+    }
+    
+    private fun initializePlayerForGame(player: Player) {
+        // プレイヤーのインベントリをクリア
         player.inventory.clear()
+        player.inventory.setHelmet(null)
+        player.inventory.setChestplate(null)
+        player.inventory.setLeggings(null)
+        player.inventory.setBoots(null)
         
-        // 基本装備
-        player.inventory.addItem(ItemStack(Material.WOODEN_SWORD))
-        player.inventory.addItem(ItemStack(Material.LEATHER_HELMET))
-        player.inventory.addItem(ItemStack(Material.LEATHER_CHESTPLATE))
-        player.inventory.addItem(ItemStack(Material.LEATHER_LEGGINGS))
-        player.inventory.addItem(ItemStack(Material.LEATHER_BOOTS))
+        // HP（体力）を最大に
+        player.health = 20.0
         
-        // 食料
-        player.inventory.addItem(ItemStack(Material.BREAD, 5))
-        player.inventory.addItem(ItemStack(Material.APPLE, 3))
+        // 満腹度を最大に
+        player.foodLevel = 20
+        player.saturation = 20.0f
         
-        // アイテム
-        player.inventory.addItem(ItemStack(Material.BOW))
-        player.inventory.addItem(ItemStack(Material.ARROW, 16))
-        player.inventory.addItem(ItemStack(Material.WOODEN_AXE))
-        player.inventory.addItem(ItemStack(Material.WOODEN_PICKAXE))
-        player.inventory.addItem(ItemStack(Material.COOKED_BEEF, 8))
+        // その他のステータスをリセット
+        player.fireTicks = 0
+        player.freezeTicks = 0
+        player.exp = 0f
+        player.level = 0
+        player.gameMode = org.bukkit.GameMode.SURVIVAL
         
-        player.sendMessage("§aYou received a starter kit!")
+        // ポーション効果をクリア
+        player.activePotionEffects.forEach { effect ->
+            player.removePotionEffect(effect.type)
+        }
+        
+        // 仕様通り、スタート時はアイテムなし（後にスキルアイテムを追加予定）
     }
     
     
