@@ -728,6 +728,21 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         } else {
             sender.sendMessage("§a✓ WorldBorder size matches game ring size")
         }
+        
+        // Test player position if sender is a player
+        if (sender is Player) {
+            val isInside = worldBorder.isInside(sender.location)
+            sender.sendMessage("§9=== Player Position Test ===")
+            sender.sendMessage("§eYour position: §f${sender.location.blockX}, ${sender.location.blockY}, ${sender.location.blockZ}")
+            sender.sendMessage("§eWorldBorder.isInside(): §f$isInside")
+            
+            // Manual distance calculation for comparison
+            val dx = sender.location.x - worldBorder.center.x
+            val dz = sender.location.z - worldBorder.center.z
+            val distance2D = kotlin.math.sqrt(dx * dx + dz * dz)
+            sender.sendMessage("§e2D Distance from center: §f${distance2D.toInt()} blocks")
+            sender.sendMessage("§eStatus: §f${if (isInside) "§aINSIDE" else "§cOUTSIDE"} the border")
+        }
     }
     
     private fun toggleRingVisualization(sender: CommandSender) {
@@ -968,14 +983,19 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     val playerX = player.location.x
                     val playerZ = player.location.z
                     
-                    // プレイヤーとボーダー中心との距離を計算
+                    // WorldBorderのisInside()メソッドを使用して正確に判定
+                    val world = player.world
+                    val worldBorder = world.worldBorder
+                    val isInsideBorder = worldBorder.isInside(player.location)
+                    
+                    // プレイヤーとボーダー中心との距離を計算（表示用）
                     val distanceFromCenter = kotlin.math.sqrt(
                         (playerX - centerX) * (playerX - centerX) + 
                         (playerZ - centerZ) * (playerZ - centerZ)
                     )
                     
-                    // ボーダー外にいるかチェック（単純な判定）
-                    if (distanceFromCenter > borderRadius) {
+                    // ボーダー外にいるかチェック
+                    if (!isInsideBorder) {
                         // ボーダー外にいる場合、フェーズに応じたダメージを与える
                         if (currentPhase != null && player.gameMode == org.bukkit.GameMode.SURVIVAL) {
                             player.damage(currentPhase.damage)
