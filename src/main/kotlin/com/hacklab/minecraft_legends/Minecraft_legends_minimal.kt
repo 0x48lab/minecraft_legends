@@ -3032,11 +3032,11 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     private fun getCooldownTime(legend: Legend): Long {
         return when (legend) {
-            Legend.PATHFINDER -> 15000 // 15秒
-            Legend.WRAITH -> 25000 // 25秒
-            Legend.LIFELINE -> 45000 // 45秒
-            Legend.BANGALORE -> 30000 // 30秒
-            Legend.GIBRALTAR -> 120000 // 120秒
+            Legend.PATHFINDER -> 1000 // 1秒（テスト用）
+            Legend.WRAITH -> 1000 // 1秒（テスト用）
+            Legend.LIFELINE -> 1000 // 1秒（テスト用）
+            Legend.BANGALORE -> 1000 // 1秒（テスト用）
+            Legend.GIBRALTAR -> 1000 // 1秒（テスト用）
         }
     }
     
@@ -3351,6 +3351,9 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         if (legendName != Legend.PATHFINDER.name) return
         
+        // デバッグ: イベント状態をログ
+        player.sendMessage("§7[DEBUG] Fish event state: ${event.state}")
+        
         when (event.state) {
             org.bukkit.event.player.PlayerFishEvent.State.FISHING -> {
                 // フックを投げた時
@@ -3378,9 +3381,10 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             
             org.bukkit.event.player.PlayerFishEvent.State.IN_GROUND -> {
                 // フックが地面に刺さった時
-                event.isCancelled = true
+                player.sendMessage("§aグラップリングフックが地面に刺さりました！")
                 
-                // クールダウンチェック
+                // クールダウンチェック（テスト用にコメントアウト）
+                /*
                 val lastUsed = legendAbilityCooldowns[player.uniqueId] ?: 0L
                 val currentTime = System.currentTimeMillis()
                 val cooldownTime = getCooldownTime(Legend.PATHFINDER)
@@ -3390,6 +3394,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     player.sendActionBar("§cグラップリングフックはクールダウン中！ あと${remainingSeconds}秒")
                     return
                 }
+                */
                 
                 val hookLocation = hook.location
                 val playerLocation = player.location
@@ -3432,7 +3437,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                 }.runTaskTimer(this, 0L, 2L)
                 
                 player.sendMessage("§bグラップリング成功！")
-                legendAbilityCooldowns[player.uniqueId] = currentTime
+                legendAbilityCooldowns[player.uniqueId] = System.currentTimeMillis()
             }
             
             org.bukkit.event.player.PlayerFishEvent.State.REEL_IN -> {
