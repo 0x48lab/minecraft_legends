@@ -3470,7 +3470,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                         
                         // 上昇ボーナス（フックが上にある場合）
                         if (dy > 5) {
-                            player.velocity = player.velocity.add(org.bukkit.util.Vector(0, 0.1, 0))
+                            player.velocity = player.velocity.add(org.bukkit.util.Vector(0.0, 0.1, 0.0))
                         }
                         
                         // ロープのパーティクル表示
@@ -3493,7 +3493,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                         // プレイヤーのトレイルエフェクト
                         player.world.spawnParticle(
                             org.bukkit.Particle.END_ROD,
-                            player.location.add(0, 1, 0),
+                            player.location.add(0.0, 1.0, 0.0),
                             3,
                             0.1, 0.1, 0.1,
                             0.02
