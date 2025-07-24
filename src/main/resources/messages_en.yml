@@ -1,0 +1,127 @@
+# English messages for Minecraft Legends Battle Royale
+
+# General messages
+general:
+  no-permission: "&cYou don't have permission to use this command!"
+  player-only: "&cThis command can only be used by players!"
+  player-not-found: "&cPlayer not found: %s"
+  error-occurred: "&cAn error occurred: %s"
+  
+# Game messages  
+game:
+  created: "&aGame created successfully! Game ID: %s"
+  started: "&aGame started! Good luck!"
+  ended: "&eGame ended. Thanks for playing!"
+  joined: "&aYou have joined the game!"
+  left: "&eYou have left the game."
+  full: "&cThe game is full! Maximum players: %d"
+  not-found: "&cNo game is currently active!"
+  already-active: "&cA game is already active!"
+  not-active: "&cNo active game found!"
+  waiting-players: "&eWaiting for more players... (%d/%d)"
+  countdown: "&eGame starting in %d seconds!"
+  
+# Team messages
+team:
+  joined: "&aYou have joined %s!"
+  full: "&cThis team is full!"
+  eliminated: "&cYour team has been eliminated!"
+  winner: "&6&lCONGRATULATIONS! Your team is the CHAMPION!"
+  member-down: "&c%s from your team has been knocked down!"
+  member-eliminated: "&c%s from your team has been eliminated!"
+  
+# Ring messages
+ring:
+  warning: "&e&lRING WARNING! &fThe ring will start moving in %d seconds!"
+  moving: "&c&lRING MOVING! &fGet to the safe zone!"
+  damage: "&c⚠ RING DAMAGE ⚠"
+  phase: "&eRing Phase %d starting!"
+  next-ring: "&eNext ring location revealed!"
+  
+# Legend messages
+legend:
+  selected: "&aYou have selected &f%s&a as your legend!"
+  unavailable: "&cThis legend is already taken by a teammate!"
+  ability-ready: "&aYour ability is ready!"
+  ability-cooldown: "&eAbility cooldown: %d seconds"
+  
+  # Legend specific
+  pathfinder:
+    name: "Pathfinder"
+    description: "Forward Scout"
+    ability: "Grappling Hook"
+    ability-used: "&eGrappling hook deployed!"
+    
+  wraith:
+    name: "Wraith"
+    description: "Interdimensional Skirmisher"
+    ability: "Phase Walk"
+    ability-used: "&dEntering the void!"
+    ability-warning: "&eLeaving phase in 3 seconds..."
+    
+  lifeline:
+    name: "Lifeline"
+    description: "Combat Medic"
+    ability: "Healing Drone"
+    ability-used: "&aHealing drone deployed!"
+    drone-expired: "&eHealing drone expired."
+    
+# Supply box messages
+supply-box:
+  opened: "&aSupply box opened!"
+  empty: "&cThis supply box has already been looted!"
+  legendary: "&6&lLEGENDARY LOOT! &eYou found legendary items!"
+  found-item: "&7+%d %s"
+  
+# Respawn messages
+respawn:
+  beacon-used: "&aRespawn beacon activated!"
+  beacon-cooldown: "&cThis beacon was recently used! Wait %d seconds."
+  banner-collected: "&aYou picked up %s's banner!"
+  banner-expired: "&c%s's banner has expired!"
+  teammate-respawning: "&a%s is being respawned!"
+  respawned: "&aYou have been respawned! Get back in the fight!"
+  
+# Death messages
+death:
+  by-player: "&c%s was eliminated by %s"
+  by-ring: "&c%s was eliminated by the ring"
+  by-fall: "&c%s fell to their death"
+  knocked: "&eYou've been knocked down!"
+  bleeding-out: "&cYou're bleeding out! (%d seconds)"
+  eliminated: "&cYou have been eliminated!"
+  
+# Statistics messages
+stats:
+  header: "&6=== %s's Statistics ==="
+  kills: "&eKills: &f%d"
+  deaths: "&eDeaths: &f%d"
+  wins: "&eWins: &f%d"
+  damage: "&eDamage Dealt: &f%d"
+  kd-ratio: "&eK/D Ratio: &f%.2f"
+  games-played: "&eGames Played: &f%d"
+  win-rate: "&eWin Rate: &f%.1f%%"
+  
+# Command messages
+command:
+  help-header: "&6=== %s Help ==="
+  help-description: "&e%s"
+  help-usage: "&eUsage: &f%s"
+  help-subcommands: "&6Subcommands:"
+  help-subcommand: "&e  %s &7- %s"
+  
+# Admin messages
+admin:
+  game-created: "&aGame created with ID: %s"
+  game-started: "&aGame started successfully!"
+  game-ended: "&aGame ended successfully!"
+  config-reloaded: "&aConfiguration reloaded!"
+  player-kicked: "&aKicked %s from the game."
+  ring-phase-set: "&aRing phase set to %d"
+  
+# GUI messages  
+gui:
+  select-legend: "&6Select Your Legend"
+  legend-info: "&eClick to select %s"
+  team-info: "&6Team Information"
+  close: "&cClose"

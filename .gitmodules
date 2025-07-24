@@ -1,0 +1,3 @@
+[submodule "worldborder-custom"]
+	path = worldborder-custom
+	url = https://github.com/Brettflan/WorldBorder.git

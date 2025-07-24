@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(./gradlew:*)",
+      "Bash(ls:*)",
+      "Bash(rg:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
+      "Bash(true)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rm:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git add:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "deny": []
+  }
+}

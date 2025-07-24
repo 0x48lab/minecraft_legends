@@ -1,0 +1,127 @@
+# 日本語メッセージ - Minecraft Legends Battle Royale
+
+# 一般メッセージ
+general:
+  no-permission: "&cこのコマンドを使用する権限がありません！"
+  player-only: "&cこのコマンドはプレイヤーのみ使用できます！"
+  player-not-found: "&cプレイヤーが見つかりません: %s"
+  error-occurred: "&cエラーが発生しました: %s"
+  
+# ゲームメッセージ
+game:
+  created: "&aゲームが作成されました！ゲームID: %s"
+  started: "&aゲーム開始！頑張ってください！"
+  ended: "&eゲーム終了。お疲れ様でした！"
+  joined: "&aゲームに参加しました！"
+  left: "&eゲームから退出しました。"
+  full: "&cゲームは満員です！最大プレイヤー数: %d"
+  not-found: "&c現在アクティブなゲームがありません！"
+  already-active: "&cすでにゲームが進行中です！"
+  not-active: "&cアクティブなゲームが見つかりません！"
+  waiting-players: "&eプレイヤーを待っています... (%d/%d)"
+  countdown: "&eゲーム開始まで %d 秒！"
+  
+# チームメッセージ
+team:
+  joined: "&a%s に参加しました！"
+  full: "&cこのチームは満員です！"
+  eliminated: "&cあなたのチームは敗退しました！"
+  winner: "&6&lおめでとうございます！あなたのチームがチャンピオンです！"
+  member-down: "&cチームメイトの %s がダウンしました！"
+  member-eliminated: "&cチームメイトの %s が脱落しました！"
+  
+# リングメッセージ
+ring:
+  warning: "&e&lリング警告！ &f%d 秒後にリングが収縮を開始します！"
+  moving: "&c&lリング収縮中！ &f安全地帯に移動してください！"
+  damage: "&c⚠ リングダメージ ⚠"
+  phase: "&eリングフェーズ %d 開始！"
+  next-ring: "&e次のリング位置が判明しました！"
+  
+# レジェンドメッセージ
+legend:
+  selected: "&a%s &aを選択しました！"
+  unavailable: "&cこのレジェンドはチームメイトが使用中です！"
+  ability-ready: "&aアビリティが使用可能です！"
+  ability-cooldown: "&eアビリティクールダウン: %d 秒"
+  
+  # レジェンド固有
+  pathfinder:
+    name: "パスファインダー"
+    description: "前線偵察兵"
+    ability: "グラップリングフック"
+    ability-used: "&eグラップリングフック発射！"
+    
+  wraith:
+    name: "レイス"
+    description: "次元をまたぐ戦闘兵"
+    ability: "フェーズウォーク"
+    ability-used: "&d虚空に入ります！"
+    ability-warning: "&e3秒後にフェーズから出ます..."
+    
+  lifeline:
+    name: "ライフライン"
+    description: "戦闘衛生兵"
+    ability: "ヒールドローン"
+    ability-used: "&aヒールドローンを展開しました！"
+    drone-expired: "&eヒールドローンが消滅しました。"
+    
+# サプライボックスメッセージ
+supply-box:
+  opened: "&aサプライボックスを開けました！"
+  empty: "&cこのサプライボックスはすでに開封されています！"
+  legendary: "&6&lレジェンダリーアイテム発見！ &e貴重なアイテムを見つけました！"
+  found-item: "&7+%d %s"
+  
+# リスポーンメッセージ
+respawn:
+  beacon-used: "&aリスポーンビーコン起動！"
+  beacon-cooldown: "&cこのビーコンは使用されたばかりです！%d 秒お待ちください。"
+  banner-collected: "&a%s のバナーを回収しました！"
+  banner-expired: "&c%s のバナーの回収期限が切れました！"
+  teammate-respawning: "&a%s をリスポーン中！"
+  respawned: "&aリスポーンしました！戦闘に復帰してください！"
+  
+# 死亡メッセージ
+death:
+  by-player: "&c%s が %s に倒されました"
+  by-ring: "&c%s がリングに倒されました"
+  by-fall: "&c%s が落下死しました"
+  knocked: "&eダウンしました！"
+  bleeding-out: "&c出血中！（残り %d 秒）"
+  eliminated: "&c脱落しました！"
+  
+# 統計メッセージ
+stats:
+  header: "&6=== %s の統計 ==="
+  kills: "&eキル数: &f%d"
+  deaths: "&eデス数: &f%d"
+  wins: "&e勝利数: &f%d"
+  damage: "&e与ダメージ: &f%d"
+  kd-ratio: "&eK/Dレート: &f%.2f"
+  games-played: "&eプレイ回数: &f%d"
+  win-rate: "&e勝率: &f%.1f%%"
+  
+# コマンドメッセージ
+command:
+  help-header: "&6=== %s ヘルプ ==="
+  help-description: "&e%s"
+  help-usage: "&e使用方法: &f%s"
+  help-subcommands: "&6サブコマンド:"
+  help-subcommand: "&e  %s &7- %s"
+  
+# 管理者メッセージ
+admin:
+  game-created: "&aゲームを作成しました。ID: %s"
+  game-started: "&aゲームを開始しました！"
+  game-ended: "&aゲームを終了しました！"
+  config-reloaded: "&a設定を再読み込みしました！"
+  player-kicked: "&a%s をゲームからキックしました。"
+  ring-phase-set: "&aリングフェーズを %d に設定しました"
+  
+# GUIメッセージ
+gui:
+  select-legend: "&6レジェンドを選択"
+  legend-info: "&eクリックして %s を選択"
+  team-info: "&6チーム情報"
+  close: "&c閉じる"

@@ -1,0 +1,24 @@
+name: battle_royale_test
+version: '1.0-TEST'
+main: com.hacklab.minecraft_legends.TestPlugin
+api-version: '1.20'
+authors: [ masafumi terazono ]
+description: Test plugin for Battle Royale world generation and beacon placement
+
+commands:
+  testworld:
+    description: Create a test world for Battle Royale
+    usage: /<command>
+    
+  testbeacons:
+    description: Place test beacons around your location
+    usage: /<command>
+    
+  tptest:
+    description: Teleport to the test world
+    usage: /<command>
+
+permissions:
+  br.test:
+    description: Allows access to test commands
+    default: op

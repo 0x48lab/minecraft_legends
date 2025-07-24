@@ -1,0 +1,36 @@
+name: minecraft_legends
+version: '1.0-SNAPSHOT'
+main: com.hacklab.minecraft_legends.Minecraft_legends_minimal
+api-version: '1.21'
+authors: [ masafumi terazono ]
+description: Battle Royale mini-game for Minecraft
+website: https://github.com/hacklab/minecraft_legends
+
+commands:
+  br:
+    description: Battle Royale player commands
+    usage: /<command> [subcommand]
+    aliases: [battle, battleroyale]
+  bradmin:
+    description: Battle Royale admin commands
+    usage: /<command> <subcommand>
+    permission: br.admin
+    aliases: [battleadmin, bra]
+
+permissions:
+  br.admin:
+    description: Allows access to all admin commands
+    default: op
+  br.player:
+    description: Allows access to player commands
+    default: true
+  br.vip:
+    description: VIP player privileges
+    default: false
+  br.*:
+    description: All permissions
+    default: false
+    children:
+      br.admin: true
+      br.player: true
+      br.vip: true
