@@ -19,6 +19,7 @@ game:
   min-players: 12  # 最小開始人数
   legend-selection-time: 60  # レジェンド選択時間（秒）
   auto-start: true  # 人数が揃ったら自動開始
+  disable-fall-damage: true  # 落下ダメージ無効化
 
 # リング設定
 ring:

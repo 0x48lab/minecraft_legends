@@ -80,6 +80,8 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         // Register events
         server.pluginManager.registerEvents(this, this)
+        server.pluginManager.registerEvents(com.hacklab.minecraft_legends.presentation.listener.DamageListener(), this)
+        server.pluginManager.registerEvents(com.hacklab.minecraft_legends.presentation.listener.ZiplineListener(this), this)
         
         logger.info("Battle Royale plugin successfully loaded!")
     }
@@ -1628,78 +1630,148 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     // 個別のレジェンドアイテムを配布
     private fun giveLegendItem(player: Player, legend: Legend) {
-        val item = when (legend) {
-            Legend.PATHFINDER -> ItemStack(Material.FISHING_ROD).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§b§lGrappling Hook")
-                meta.lore = listOf(
-                    "§7Pathfinder's tactical ability",
-                    "§7Right-click to grapple!",
-                    "§7Cooldown: 15 seconds"
-                )
-                meta.isUnbreakable = true
-                itemMeta = meta
+        when (legend) {
+            Legend.PATHFINDER -> {
+                // グラップリングフック
+                val grapplingHook = ItemStack(Material.FISHING_ROD).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§b§lGrappling Hook")
+                    meta.lore = listOf(
+                        "§7Pathfinder's tactical ability",
+                        "§7Right-click to grapple!",
+                        "§7Cooldown: 15 seconds"
+                    )
+                    meta.isUnbreakable = true
+                    itemMeta = meta
+                }
+                
+                // ジップライン
+                val zipline = ItemStack(Material.LEAD, 3).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§e§lZipline Launcher")
+                    meta.lore = listOf(
+                        "§7Creates a zipline to distant blocks",
+                        "§7Right-click to deploy!",
+                        "§7Max distance: 64 blocks"
+                    )
+                    meta.persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "zipline_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        "pathfinder_zipline"
+                    )
+                    itemMeta = meta
+                }
+                
+                // カスタムタグを追加
+                grapplingHook.itemMeta = grapplingHook.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(grapplingHook)
+                player.inventory.addItem(zipline)
+                return
             }
             
-            Legend.WRAITH -> ItemStack(Material.ENDER_EYE).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§5§lVoid Walk")
-                meta.lore = listOf(
-                    "§7Wraith's tactical ability",
-                    "§7Right-click to phase!",
-                    "§7Duration: 3 seconds",
-                    "§7Cooldown: 25 seconds"
-                )
-                itemMeta = meta
+            Legend.WRAITH -> {
+                val item = ItemStack(Material.ENDER_EYE).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§5§lVoid Walk")
+                    meta.lore = listOf(
+                        "§7Wraith's tactical ability",
+                        "§7Right-click to phase!",
+                        "§7Duration: 3 seconds",
+                        "§7Cooldown: 25 seconds"
+                    )
+                    itemMeta = meta
+                }
+                
+                item.itemMeta = item.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(item)
             }
             
-            Legend.LIFELINE -> ItemStack(Material.GOLDEN_APPLE).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§a§lD.O.C. Heal Drone")
-                meta.lore = listOf(
-                    "§7Lifeline's tactical ability",
-                    "§7Right-click to deploy healing drone!",
-                    "§7Heals nearby players",
-                    "§7Cooldown: 45 seconds"
-                )
-                itemMeta = meta
+            Legend.LIFELINE -> {
+                val item = ItemStack(Material.GOLDEN_APPLE).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§a§lD.O.C. Heal Drone")
+                    meta.lore = listOf(
+                        "§7Lifeline's tactical ability",
+                        "§7Right-click to deploy healing drone!",
+                        "§7Heals nearby players",
+                        "§7Cooldown: 45 seconds"
+                    )
+                    itemMeta = meta
+                }
+                
+                item.itemMeta = item.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(item)
             }
             
-            Legend.BANGALORE -> ItemStack(Material.IRON_BLOCK).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§7§lDome Shield")
-                meta.lore = listOf(
-                    "§7Bangalore's tactical ability",
-                    "§7Right-click to deploy dome shield!",
-                    "§7Creates protective dome",
-                    "§7Cooldown: 30 seconds"
-                )
-                itemMeta = meta
+            Legend.BANGALORE -> {
+                val item = ItemStack(Material.IRON_BLOCK).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§7§lDome Shield")
+                    meta.lore = listOf(
+                        "§7Bangalore's tactical ability",
+                        "§7Right-click to deploy dome shield!",
+                        "§7Creates protective dome",
+                        "§7Cooldown: 30 seconds"
+                    )
+                    itemMeta = meta
+                }
+                
+                item.itemMeta = item.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(item)
             }
             
-            Legend.GIBRALTAR -> ItemStack(Material.FIRE_CHARGE).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§c§lDefensive Bombardment")
-                meta.lore = listOf(
-                    "§7Gibraltar's tactical ability",
-                    "§7Right-click to call airstrike!",
-                    "§7Marks location for bombardment",
-                    "§7Cooldown: 120 seconds"
-                )
-                itemMeta = meta
+            Legend.GIBRALTAR -> {
+                val item = ItemStack(Material.FIRE_CHARGE).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§c§lDefensive Bombardment")
+                    meta.lore = listOf(
+                        "§7Gibraltar's tactical ability",
+                        "§7Right-click to call airstrike!",
+                        "§7Marks location for bombardment",
+                        "§7Cooldown: 120 seconds"
+                    )
+                    itemMeta = meta
+                }
+                
+                item.itemMeta = item.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(item)
             }
         }
-        
-        // アイテムにカスタムタグを追加（ドロップ防止用）
-        item.itemMeta = item.itemMeta?.apply {
-            persistentDataContainer.set(
-                org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
-                org.bukkit.persistence.PersistentDataType.STRING,
-                legend.name
-            )
-        }
-        
-        player.inventory.addItem(item)
     }
     
     
@@ -2075,7 +2147,26 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     }
                     player.inventory.addItem(rod)
                 }
-                player.sendMessage("§bPathfinder abilities activated! Use your grappling hook wisely.")
+                
+                // ジップラインアイテムも追加
+                val zipline = ItemStack(Material.LEAD).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§e§lZipline Launcher")
+                    meta.lore = listOf(
+                        "§7Creates a zipline to distant blocks",
+                        "§7Right-click to deploy!",
+                        "§7Max distance: 64 blocks"
+                    )
+                    meta.persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "zipline_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        "pathfinder_zipline"
+                    )
+                    itemMeta = meta
+                }
+                player.inventory.addItem(zipline)
+                
+                player.sendMessage("§bPathfinder abilities activated! Use your grappling hook and zipline wisely.")
             }
             Legend.WRAITH -> {
                 player.sendMessage("§5Wraith abilities activated! Use /br ability to enter the void.")
@@ -3072,7 +3163,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         player.sendMessage("§bグラップリングフック準備完了！")
     }
     
-    // エンティティを特定の場所に引き寄せる（snowgearsスタイル）
+    // エンティティを特定の場所に引き寄せる（振り子式）
     private fun pullEntityToLocation(entity: org.bukkit.entity.Entity, location: org.bukkit.Location, hook: org.bukkit.entity.FishHook) {
         val entityLocation = entity.location
         val distance = entityLocation.distance(location)
@@ -3085,45 +3176,89 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             return
         }
         
-        // snowgearsスタイルの速度計算
-        val dx = location.x - entityLocation.x
-        val dy = location.y - entityLocation.y
-        val dz = location.z - entityLocation.z
-        
-        // 時間係数（距離に基づく）
-        val time = distance / 10.0
-        
-        // 速度ベクトルの計算（重力を考慮）
-        var vx = dx / time
-        var vy = dy / time
-        var vz = dz / time
-        
-        // 重力補正
-        vy += 0.5 * 0.98 * time
-        
-        // 速度倍率を適用
-        vx *= velocityMultiplier
-        vy *= velocityMultiplier
-        vz *= velocityMultiplier
-        
-        // 垂直方向の調整
-        if (dy > 0.0) {
-            // 上方向への移動の場合、追加のブースト
-            vy += 0.25
+        if (entity is Player) {
+            // プレイヤーの向きと糸の角度を計算
+            val playerDirection = entity.location.direction
+            val hookDirection = location.toVector().subtract(entityLocation.toVector()).normalize()
+            
+            // 角度差を計算（内積）
+            val angle = playerDirection.angle(hookDirection)
+            val angleDegrees = Math.toDegrees(angle.toDouble())
+            
+            // 角度に基づいて溜め時間を計算（最大90度で最大溜め）
+            val chargeTime = Math.min(angleDegrees / 90.0, 1.0) * 15 // 最大0.75秒の溜め
+            val chargeMultiplier = 1.0 + (chargeTime / 15.0) * 0.5 // 最大1.5倍の加速
+            
+            // 振り子の物理計算
+            val dx = location.x - entityLocation.x
+            val dy = location.y - entityLocation.y
+            val dz = location.z - entityLocation.z
+            
+            // 振り子の支点までのベクトル
+            val pendulumVector = org.bukkit.util.Vector(dx, dy, dz)
+            val pendulumLength = pendulumVector.length()
+            
+            // 重力の影響を考慮した振り子運動
+            val gravity = 0.08 // Minecraftの重力定数
+            val swingVelocity = Math.sqrt(2.0 * gravity * Math.abs(dy)) * chargeMultiplier
+            
+            // 進行方向の計算（プレイヤーの向きも考慮）
+            val swingDirection = hookDirection.clone()
+            
+            // 横方向の運動量を追加（振り子の振れ）
+            val lateralBoost = playerDirection.clone().multiply(swingVelocity * 0.3)
+            
+            // 最終速度の計算
+            val velocity = swingDirection.multiply(swingVelocity * velocityMultiplier).add(lateralBoost)
+            
+            // Y軸速度の調整（より自然な放物線を描く）
+            velocity.y = Math.max(velocity.y + 0.4, 0.6) * chargeMultiplier
+            
+            // 最大速度制限
+            val maxVelocity = 4.0
+            if (velocity.length() > maxVelocity) {
+                velocity.normalize().multiply(maxVelocity)
+            }
+            
+            // 溜めエフェクト
+            if (chargeTime > 5) {
+                entity.world.spawnParticle(
+                    org.bukkit.Particle.DUST,
+                    entity.location,
+                    20,
+                    0.5, 0.5, 0.5,
+                    org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 2.0f)
+                )
+                entity.sendMessage("§b§l強化グラップリング！ (溜め: ${String.format("%.1f", chargeTime / 10.0)}秒)")
+            }
+            
+            // 遅延を追加して溜めを表現
+            object : BukkitRunnable() {
+                override fun run() {
+                    entity.velocity = velocity
+                }
+            }.runTaskLater(this, chargeTime.toLong())
+        } else {
+            // エンティティの場合は通常の引き寄せ
+            val dx = location.x - entityLocation.x
+            val dy = location.y - entityLocation.y
+            val dz = location.z - entityLocation.z
+            
+            val time = distance / 10.0
+            var vx = dx / time
+            var vy = dy / time
+            var vz = dz / time
+            
+            // 重力補正
+            vy += 0.5 * 0.98 * time
+            
+            // 速度倍率を適用
+            vx *= velocityMultiplier
+            vy *= velocityMultiplier
+            vz *= velocityMultiplier
+            
+            entity.velocity = org.bukkit.util.Vector(vx, vy, vz)
         }
-        
-        // 最大速度の制限
-        val maxVelocity = 4.0
-        val totalVelocity = kotlin.math.sqrt(vx * vx + vy * vy + vz * vz)
-        if (totalVelocity > maxVelocity) {
-            val scale = maxVelocity / totalVelocity
-            vx *= scale
-            vy *= scale
-            vz *= scale
-        }
-        
-        // 速度を適用
-        entity.velocity = org.bukkit.util.Vector(vx, vy, vz)
         
         // エフェクト
         if (entity is Player) {
@@ -3419,9 +3554,10 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     // パスファインダーのフックメカニクス
     private val activeHooks = mutableMapOf<UUID, org.bukkit.entity.FishHook>()
     
-    // Grappling Hook設定（snowgearsスタイル）
-    private val velocityMultiplier = 2.0 // 引き寄せ速度係数
+    // Grappling Hook設定（振り子スタイル）
+    private val velocityMultiplier = 2.5 // 引き寄せ速度係数
     private val maxHookDistance = 30.0 // 最大フック距離
+    private val maxChargeTime = 15 // 最大溜め時間（tick）
     
     @EventHandler
     fun onPlayerFish(event: org.bukkit.event.player.PlayerFishEvent) {
