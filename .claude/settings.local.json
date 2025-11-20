@@ -13,7 +13,9 @@
       "Bash(rm:*)",
       "WebFetch(domain:github.com)",
       "Bash(git add:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git merge:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }

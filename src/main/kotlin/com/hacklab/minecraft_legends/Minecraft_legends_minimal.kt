@@ -12,7 +12,6 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.PlayerDeathEvent
-import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.inventory.InventoryClickEvent
@@ -60,7 +59,6 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     private var ringShrinkTaskId: Int? = null
     private var currentRingCenter: org.bukkit.Location? = null // 現在のリング中心
     private var isRingShrinking = false // リングが縮小中か
-    private var randomBorderShiftTaskId: Int? = null // ランダムボーダー移動タスクID
     
     // リングフェーズ設定（40分ゲーム版）
     private val ringPhases = listOf(
@@ -82,6 +80,8 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         // Register events
         server.pluginManager.registerEvents(this, this)
+        server.pluginManager.registerEvents(com.hacklab.minecraft_legends.presentation.listener.DamageListener(), this)
+        server.pluginManager.registerEvents(com.hacklab.minecraft_legends.presentation.listener.ZiplineListener(this), this)
         
         logger.info("Battle Royale plugin successfully loaded!")
     }
@@ -94,16 +94,16 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         when (command.name.lowercase()) {
             "br" -> {
                 if (sender !is Player) {
-                    sender.sendMessage("§cこのコマンドはプレイヤーのみが使用できます！")
+                    sender.sendMessage("§cThis command can only be used by players!")
                     return true
                 }
                 
                 if (args.isEmpty()) {
-                    sender.sendMessage("§e=== バトルロイヤル コマンド一覧 ===")
-                    sender.sendMessage("§e/br join - ゲームに参加します")
-                    sender.sendMessage("§e/br leave - ゲームから抜けます")
-                    sender.sendMessage("§e/br stats - 自分の戦績を表示します")
-                    sender.sendMessage("§e/br ability - レジェンドのアビリティを使用します")
+                    sender.sendMessage("§e=== Battle Royale Commands ===")
+                    sender.sendMessage("§e/br join - Join the current game")
+                    sender.sendMessage("§e/br leave - Leave the current game")
+                    sender.sendMessage("§e/br stats - View your statistics")
+                    sender.sendMessage("§e/br ability - Use your legend ability")
                     return true
                 }
                 
@@ -113,7 +113,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     "stats" -> showStats(sender)
                     "ability" -> useAbility(sender)
                     else -> {
-                        sender.sendMessage("§c不明なサブコマンドです！ヘルプは /br を参照してください。")
+                        sender.sendMessage("§cUnknown subcommand! Use /br for help.")
                     }
                 }
                 return true
@@ -121,24 +121,24 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             
             "bradmin" -> {
                 if (!sender.hasPermission("br.admin")) {
-                    sender.sendMessage("§cこのコマンドを使用する権限がありません！")
+                    sender.sendMessage("§cYou don't have permission to use this command!")
                     return true
                 }
                 
                 if (args.isEmpty()) {
-                    sender.sendMessage("§e=== バトルロイヤル 管理者コマンド ===")
-                    sender.sendMessage("§e/bradmin create - 新しいゲームを作成")
-                    sender.sendMessage("§e/bradmin start - 現在のゲームを開始")
-                    sender.sendMessage("§e/bradmin stop - 現在のゲームを停止")
-                    sender.sendMessage("§e/bradmin status - ゲームの状態を表示")
-                    sender.sendMessage("§e/bradmin beacons - ビーコンの位置を表示")
-                    sender.sendMessage("§e/bradmin teams - チームの割り当てを表示")
-                    sender.sendMessage("§e/bradmin setteam <player> <team> - プレイヤーをチームに割り当て")
-                    sender.sendMessage("§e/bradmin ring - ストーム（リング）情報を表示")
-                    sender.sendMessage("§e/bradmin togglering - リング境界の可視化を切り替え")
-                    sender.sendMessage("§e/bradmin supplybox - サプライボックスを出現させる")
-                    sender.sendMessage("§e/bradmin legend <player> <legend> - プレイヤーのレジェンドを設定")
-                    sender.sendMessage("§e/bradmin border - WorldBorder のデバッグ情報を表示")
+                    sender.sendMessage("§e=== Battle Royale Admin Commands ===")
+                    sender.sendMessage("§e/bradmin create - Create a new game")
+                    sender.sendMessage("§e/bradmin start - Start the current game")
+                    sender.sendMessage("§e/bradmin stop - Stop the current game")
+                    sender.sendMessage("§e/bradmin status - View game status")
+                    sender.sendMessage("§e/bradmin beacons - Show beacon locations")
+                    sender.sendMessage("§e/bradmin teams - Show team assignments")
+                    sender.sendMessage("§e/bradmin setteam <player> <team> - Assign player to team")
+                    sender.sendMessage("§e/bradmin ring - Show ring information")
+                    sender.sendMessage("§e/bradmin togglering - Toggle ring boundary visibility")
+                    sender.sendMessage("§e/bradmin supplybox - Spawn a supply box")
+                    sender.sendMessage("§e/bradmin legend <player> <legend> - Set player legend")
+                    sender.sendMessage("§e/bradmin border - Show WorldBorder debug info")
                     return true
                 }
                 
@@ -156,7 +156,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     "legend" -> setPlayerLegend(sender, args)
                     "border" -> showWorldBorderInfo(sender)
                     else -> {
-                        sender.sendMessage("§c不明なサブコマンドです！ヘルプは /bradmin を参照してください。")
+                        sender.sendMessage("§cUnknown subcommand! Use /bradmin for help.")
                     }
                 }
                 return true
@@ -167,22 +167,22 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     private fun joinGame(player: Player) {
         if (currentGame == null) {
-            player.sendMessage("§c参加できるアクティブなゲームがありません！")
+            player.sendMessage("§cNo active game to join!")
             return
         }
         
         if (currentGame!!.players.contains(player.uniqueId)) {
-            player.sendMessage("§cあなたはすでにゲームに参加しています！")
+            player.sendMessage("§cYou are already in the game!")
             return
         }
         
         if (currentGame!!.state != GameState.WAITING) {
-            player.sendMessage("§cゲームはすでに開始されています！")
+            player.sendMessage("§cThe game has already started!")
             return
         }
         
         currentGame!!.players.add(player.uniqueId)
-        player.sendMessage("§aバトルロイヤルゲームに参加しました！")
+        player.sendMessage("§aYou joined the Battle Royale game!")
         
         // Auto-assign to team if not already assigned
         if (!playerTeams.containsKey(player.uniqueId)) {
@@ -192,41 +192,41 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         // Broadcast to all players
         currentGame!!.players.forEach { playerId ->
             val p = Bukkit.getPlayer(playerId)
-            p?.sendMessage("§e${player.name} がゲームに参加しました！ (${currentGame!!.players.size}/24)")
+            p?.sendMessage("§e${player.name} joined the game! (${currentGame!!.players.size}/24)")
         }
     }
     
     private fun leaveGame(player: Player) {
         if (currentGame == null || !currentGame!!.players.contains(player.uniqueId)) {
-            player.sendMessage("§cあなたはどのゲームにも参加していません！")
+            player.sendMessage("§cYou are not in any game!")
             return
         }
         
         currentGame!!.players.remove(player.uniqueId)
-        player.sendMessage("§eバトルロイヤルゲームから退出しました！")
+        player.sendMessage("§eYou left the Battle Royale game!")
         
         // Broadcast to remaining players
         currentGame!!.players.forEach { playerId ->
             val p = Bukkit.getPlayer(playerId)
-            p?.sendMessage("§e${player.name} がゲームから退出しました！ (${currentGame!!.players.size}/24)")
+            p?.sendMessage("§e${player.name} left the game! (${currentGame!!.players.size}/24)")
         }
     }
     
     private fun showStats(player: Player) {
         val stats = playerStats.getOrDefault(player.uniqueId, PlayerStats())
         
-        player.sendMessage("§e=== あなたのバトルロイヤル戦績 ===")
-        player.sendMessage("§eプレイ回数: §f${stats.gamesPlayed}")
-        player.sendMessage("§e勝利数: §f${stats.wins}")
-        player.sendMessage("§eキル数: §f${stats.kills}")
-        player.sendMessage("§eデス数: §f${stats.deaths}")
-        player.sendMessage("§e与ダメージ: §f${String.format("%.1f", stats.damageDealt)}")
-        player.sendMessage("§e生存時間: §f${formatTime(stats.timeSurvived)}")
+        player.sendMessage("§e=== Your Battle Royale Stats ===")
+        player.sendMessage("§eGames Played: §f${stats.gamesPlayed}")
+        player.sendMessage("§eWins: §f${stats.wins}")
+        player.sendMessage("§eKills: §f${stats.kills}")
+        player.sendMessage("§eDeaths: §f${stats.deaths}")
+        player.sendMessage("§eDamage Dealt: §f${String.format("%.1f", stats.damageDealt)}")
+        player.sendMessage("§eTime Survived: §f${formatTime(stats.timeSurvived)}")
         
         val winRate = if (stats.gamesPlayed > 0) {
             (stats.wins.toDouble() / stats.gamesPlayed * 100)
         } else 0.0
-        player.sendMessage("§e勝率: §f${String.format("%.1f", winRate)}%")
+        player.sendMessage("§eWin Rate: §f${String.format("%.1f", winRate)}%")
     }
     
     private fun formatTime(seconds: Long): String {
@@ -237,23 +237,23 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     private fun useAbility(sender: CommandSender) {
         if (sender !is Player) {
-            sender.sendMessage("§cアビリティはプレイヤーのみ使用できます！")
+            sender.sendMessage("§cOnly players can use abilities!")
             return
         }
         
         if (currentGame == null || currentGame!!.state != GameState.ACTIVE) {
-            sender.sendMessage("§c進行中のゲームがありません！")
+            sender.sendMessage("§cNo active game!")
             return
         }
         
         if (!currentGame!!.players.contains(sender.uniqueId)) {
-            sender.sendMessage("§cあなたはゲームに参加していません！")
+            sender.sendMessage("§cYou are not in the game!")
             return
         }
         
         val legend = playerLegends[sender.uniqueId]
         if (legend == null) {
-            sender.sendMessage("§cレジェンドを選択していません！")
+            sender.sendMessage("§cYou haven't selected a legend!")
             return
         }
         
@@ -263,12 +263,12 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         when (legend) {
             Legend.PATHFINDER -> {
-                sender.sendMessage("§cパスファインダーは釣り竿でグラップリングフックを使用します！")
+                sender.sendMessage("§cPathfinder uses fishing rod for grappling hook!")
             }
             Legend.WRAITH -> {
                 if (currentTime - lastUsed < 25000L) { // 25秒クールダウン
                     val remaining = ((25000L - (currentTime - lastUsed)) / 1000)
-                    sender.sendMessage("§cヴォイドウォークはクールダウン中です！ 残り${remaining}秒")
+                    sender.sendMessage("§cVoid walk on cooldown! ${remaining}s remaining")
                     return
                 }
                 activateWraithAbility(sender)
@@ -277,23 +277,23 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             Legend.LIFELINE -> {
                 if (currentTime - lastUsed < 30000L) { // 30秒クールダウン
                     val remaining = ((30000L - (currentTime - lastUsed)) / 1000)
-                    sender.sendMessage("§cD.O.C.ヒールはクールダウン中です！ 残り${remaining}秒")
+                    sender.sendMessage("§cD.O.C. Heal on cooldown! ${remaining}s remaining")
                     return
                 }
                 activateLifelineAbility(sender)
                 legendAbilityCooldowns[sender.uniqueId] = currentTime
             }
             Legend.BANGALORE -> {
-                sender.sendMessage("§7バンガロールはスモークランチャーを使用します！")
+                sender.sendMessage("§7Bangalore uses smoke launcher!")
             }
             Legend.GIBRALTAR -> {
-                sender.sendMessage("§cジブラルタルは防衛ボムバードメントを使用します！")
+                sender.sendMessage("§cGibraltar uses defensive bombardment!")
             }
         }
     }
     
     private fun activateWraithAbility(player: Player) {
-        player.sendMessage("§5§l虚空へ — 発動！")
+        player.sendMessage("§5§lInto the Void activated!")
         player.playSound(player.location, org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.5f)
         
         // 透明化と無敵を付与
@@ -323,7 +323,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             override fun run() {
                 if (ticks++ >= 60) {
                     wraithInvisiblePlayers.remove(player.uniqueId)
-                    player.sendMessage("§5虚空から戻ります…")
+                    player.sendMessage("§5Exiting the void...")
                     cancel()
                     return
                 }
@@ -341,7 +341,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     }
     
     private fun activateLifelineAbility(player: Player) {
-        player.sendMessage("§a§lD.O.C.ヒールドローンを展開しました！")
+        player.sendMessage("§a§lD.O.C. Heal Drone deployed!")
         player.playSound(player.location, org.bukkit.Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f)
         
         // 自分と周囲のチームメイトを回復
@@ -351,7 +351,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             var seconds = 0
             override fun run() {
                 if (seconds++ >= 5) { // 5秒間
-                    player.sendMessage("§aD.O.C.ヒールドローンの効果が終了しました")
+                    player.sendMessage("§aD.O.C. Heal Drone expired")
                     cancel()
                     return
                 }
@@ -371,7 +371,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                             val memberMaxHealth = entity.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.value ?: 20.0
                             if (memberHealth < memberMaxHealth) {
                                 entity.health = Math.min(memberHealth + 4.0, memberMaxHealth)
-                                entity.sendMessage("§aライフラインのD.O.C.ドローンにより回復中！")
+                                entity.sendMessage("§aYou are being healed by Lifeline's D.O.C. Drone!")
                             }
                         }
                     }
@@ -394,7 +394,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     private fun createGame(sender: CommandSender) {
         if (currentGame != null) {
-            sender.sendMessage("§cすでにアクティブなゲームがあります！先に停止してください。")
+            sender.sendMessage("§cA game is already active! Stop it first.")
             return
         }
         
@@ -410,29 +410,29 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         initializeTeams()
         
         games[gameId] = currentGame!!
-        sender.sendMessage("§a新しいバトルロイヤルゲームを作成しました！ ID: $gameId")
-        sender.sendMessage("§eプレイヤーは /br join で参加できます")
-        sender.sendMessage("§7チーム: 赤・青・緑・黄（自動割り当て）")
+        sender.sendMessage("§aNew Battle Royale game created! ID: $gameId")
+        sender.sendMessage("§ePlayers can now join with /br join")
+        sender.sendMessage("§7Teams: Red, Blue, Green, Yellow (auto-assigned)")
     }
     
     private fun startGame(sender: CommandSender) {
         if (currentGame == null) {
-            sender.sendMessage("§c開始できるゲームがありません！ 先に作成してください。")
+            sender.sendMessage("§cNo game to start! Create one first.")
             return
         }
         
         if (currentGame!!.state != GameState.WAITING) {
-            sender.sendMessage("§cゲームは待機状態ではありません！")
+            sender.sendMessage("§cGame is not in waiting state!")
             return
         }
         
         if (currentGame!!.players.size < 1) {
-            sender.sendMessage("§c開始には最低1人のプレイヤーが必要です！")
+            sender.sendMessage("§cNeed at least 1 player to start!")
             return
         }
         
         currentGame!!.state = GameState.ACTIVE
-        sender.sendMessage("§aゲームを開始しました！")
+        sender.sendMessage("§aGame started!")
         
         // 統計初期化
         initializeGameStats()
@@ -469,9 +469,9 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                 // プレイヤーを初期化
                 initializePlayerForGame(player)
                 
-                player.sendMessage("§aバトルロイヤルが始まりました！")
-                player.sendMessage("§7あなたのチームはランダムな場所に展開されました！")
-                player.sendMessage("§7武器を見つけて生き残れ！")
+                player.sendMessage("§aThe Battle Royale has begun!")
+                player.sendMessage("§7Your team has been deployed to a random location!")
+                player.sendMessage("§7Find weapons and survive!")
             }
         }
         
@@ -484,9 +484,6 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         // Start supply box spawning
         startSupplyBoxSpawning()
         
-        // ランダムなボーダー移動と10%面積縮小を5分ごとに実行
-        startRandomBorderShift()
-        
         // スコアボードを初期化
         initializeScoreboard()
         
@@ -494,7 +491,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     private fun stopGame(sender: CommandSender) {
         if (currentGame == null) {
-            sender.sendMessage("§c停止できるアクティブなゲームがありません！")
+            sender.sendMessage("§cNo active game to stop!")
             return
         }
         
@@ -503,33 +500,29 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         currentGame!!.players.forEach { playerId ->
             val player = Bukkit.getPlayer(playerId)
             player?.teleport(mainWorld.spawnLocation)
-            player?.sendMessage("§eバトルロイヤルゲームは終了しました！")
+            player?.sendMessage("§eThe Battle Royale game has ended!")
         }
         
         currentGame!!.state = GameState.FINISHED
-        sender.sendMessage("§aゲームを停止しました！")
+        sender.sendMessage("§aGame stopped!")
         
         // スコアボードのクリーンアップ
         cleanupScoreboard()
         
-        // ランダムボーダー移動タスクの停止
-        randomBorderShiftTaskId?.let { Bukkit.getScheduler().cancelTask(it) }
-        randomBorderShiftTaskId = null
-
         currentGame = null
     }
     
     private fun showStatus(sender: CommandSender) {
         if (currentGame == null) {
-            sender.sendMessage("§eアクティブなゲームはありません")
+            sender.sendMessage("§eNo active game")
             return
         }
         
-        sender.sendMessage("§e=== ゲーム状態 ===")
+        sender.sendMessage("§e=== Game Status ===")
         sender.sendMessage("§eID: §f${currentGame!!.id}")
-        sender.sendMessage("§e状態: §f${currentGame!!.state}")
-        sender.sendMessage("§eプレイヤー: §f${currentGame!!.players.size}/24")
-        sender.sendMessage("§eワールド: §f${currentGame!!.worldName}")
+        sender.sendMessage("§eState: §f${currentGame!!.state}")
+        sender.sendMessage("§ePlayers: §f${currentGame!!.players.size}/24")
+        sender.sendMessage("§eWorld: §f${currentGame!!.worldName}")
     }
     
     private fun showBeacons(sender: CommandSender) {
@@ -539,9 +532,9 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         val centerZ = spawnLocation.blockZ
         val radius = 150
         
-        sender.sendMessage("§e=== ビーコンの位置 ===")
-        sender.sendMessage("§e中心: §f${centerX}, ${centerZ} (スポーン)")
-        sender.sendMessage("§e半径: §f${radius} ブロック")
+        sender.sendMessage("§e=== Beacon Locations ===")
+        sender.sendMessage("§eCenter: §f${centerX}, ${centerZ} (spawn)")
+        sender.sendMessage("§eRadius: §f${radius} blocks")
         
         val beaconCount = 6
         for (i in 0 until beaconCount) {
@@ -551,20 +544,20 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             val y = world.getHighestBlockYAt(x, z) + 1
             
             val direction = when (i) {
-                0 -> "東 (East)"
-                1 -> "北東 (NorthEast)"
-                2 -> "北西 (NorthWest)"
-                3 -> "西 (West)"
-                4 -> "南西 (SouthWest)"
-                5 -> "南東 (SouthEast)"
-                else -> "不明 (Unknown)"
+                0 -> "East"
+                1 -> "NorthEast"
+                2 -> "NorthWest"
+                3 -> "West"
+                4 -> "SouthWest"
+                5 -> "SouthEast"
+                else -> "Unknown"
             }
             
             sender.sendMessage("§7${i + 1}. §e$direction: §f$x, $y, $z")
         }
         
         if (sender is Player) {
-            sender.sendMessage("§7空に伸びる光るビーコンの柱を探してください！")
+            sender.sendMessage("§7Look for glowing beacon beams in the sky!")
         }
     }
     
@@ -573,10 +566,10 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         playerTeams.clear()
         
         val teamColors = listOf(
-            TeamColor.RED to "§c赤チーム",
-            TeamColor.BLUE to "§9青チーム", 
-            TeamColor.GREEN to "§a緑チーム",
-            TeamColor.YELLOW to "§e黄チーム"
+            TeamColor.RED to "§cRed Team",
+            TeamColor.BLUE to "§9Blue Team", 
+            TeamColor.GREEN to "§aGreen Team",
+            TeamColor.YELLOW to "§eYellow Team"
         )
         
         teamColors.forEach { (color, name) ->
@@ -593,25 +586,25 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     private fun showTeams(sender: CommandSender) {
         if (currentGame == null) {
-            sender.sendMessage("§cアクティブなゲームがありません！")
+            sender.sendMessage("§cNo active game!")
             return
         }
         
-        sender.sendMessage("§e=== チーム割り当て ===")
+        sender.sendMessage("§e=== Team Assignments ===")
         teams.values.forEach { team ->
             val members = team.members.mapNotNull { playerId ->
                 Bukkit.getPlayer(playerId)?.name
             }.joinToString(", ")
             
-            val status = if (team.isAlive) "§a生存" else "§c全滅"
-            sender.sendMessage("${team.name} ($status): §f${members.ifEmpty { "なし" }}")
+            val status = if (team.isAlive) "§aAlive" else "§cEliminated"
+            sender.sendMessage("${team.name} ($status): §f${members.ifEmpty { "Empty" }}")
         }
     }
     
     private fun setTeam(sender: CommandSender, args: Array<out String>) {
         if (args.size < 3) {
-            sender.sendMessage("§c使い方: /bradmin setteam <プレイヤー> <チーム>")
-            sender.sendMessage("§cチーム: red, blue, green, yellow")
+            sender.sendMessage("§cUsage: /bradmin setteam <player> <team>")
+            sender.sendMessage("§cTeams: red, blue, green, yellow")
             return
         }
         
@@ -620,7 +613,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         
         val player = Bukkit.getPlayer(playerName)
         if (player == null) {
-            sender.sendMessage("§cプレイヤーが見つかりません: $playerName")
+            sender.sendMessage("§cPlayer not found: $playerName")
             return
         }
         
@@ -629,8 +622,8 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         }
         
         if (targetTeam == null) {
-            sender.sendMessage("§c無効なチームです: $teamName")
-            sender.sendMessage("§c選択可能なチーム: red, blue, green, yellow")
+            sender.sendMessage("§cInvalid team: $teamName")
+            sender.sendMessage("§cAvailable teams: red, blue, green, yellow")
             return
         }
         
@@ -643,8 +636,8 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         targetTeam.members.add(player.uniqueId)
         playerTeams[player.uniqueId] = targetTeam.id
         
-        sender.sendMessage("§a${player.name} を ${targetTeam.name} に割り当てました")
-        player.sendMessage("§aあなたは ${targetTeam.name} に割り当てられました！")
+        sender.sendMessage("§aAssigned ${player.name} to ${targetTeam.name}")
+        player.sendMessage("§aYou have been assigned to ${targetTeam.name}!")
     }
     
     private fun autoAssignTeam(player: Player) {
@@ -654,7 +647,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         targetTeam.members.add(player.uniqueId)
         playerTeams[player.uniqueId] = targetTeam.id
         
-        player.sendMessage("§aあなたは ${targetTeam.name} に割り当てられました！")
+        player.sendMessage("§aYou have been assigned to ${targetTeam.name}!")
     }
     
     private fun showRingInfo(sender: CommandSender) {
@@ -663,19 +656,19 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             return
         }
         
-        sender.sendMessage("§9=== ストーム情報 ===")
+        sender.sendMessage("§9=== Storm Information ===")
         
         val world = Bukkit.getWorlds()[0]
         val worldBorder = world.worldBorder
         
-        sender.sendMessage("§eストーム中心: §f${worldBorder.center.blockX}, ${worldBorder.center.blockZ}")
-        sender.sendMessage("§eセーフゾーンの大きさ: §f${worldBorder.size.toInt()} ブロック")
-        sender.sendMessage("§eストームフェーズ: §f$currentRingPhase / ${ringPhases.size}")
+        sender.sendMessage("§eStorm Center: §f${worldBorder.center.blockX}, ${worldBorder.center.blockZ}")
+        sender.sendMessage("§eSafe Zone Size: §f${worldBorder.size.toInt()} blocks")
+        sender.sendMessage("§eStorm Phase: §f$currentRingPhase / ${ringPhases.size}")
         
         if (currentRingPhase < ringPhases.size) {
             val phase = ringPhases[currentRingPhase]
-            sender.sendMessage("§eフェーズ状態: §f${if (isRingShrinking) "縮小中" else "待機中"}")
-            sender.sendMessage("§e現在のダメージ: §c${phase.damage} HP/秒")
+            sender.sendMessage("§ePhase Status: §f${if (isRingShrinking) "Shrinking" else "Waiting"}")
+            sender.sendMessage("§eCurrent Damage: §c${phase.damage} HP/second")
         }
         
         if (sender is Player) {
@@ -683,16 +676,16 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             val playerDistance = sender.location.distance(worldBorder.center)
             val distanceFromBorder = borderDistance - playerDistance
             
-            val status = if (distanceFromBorder > 0) "§aセーフゾーン" else "§cデンジャーゾーン"
-            sender.sendMessage("§e境界までの距離: §f${distanceFromBorder.toInt()} ブロック ($status)")
+            val status = if (distanceFromBorder > 0) "§aSafe Zone" else "§cDanger Zone"
+            sender.sendMessage("§eYour Distance from Border: §f${distanceFromBorder.toInt()} blocks ($status)")
             
             if (distanceFromBorder < 50) {
-                sender.sendMessage("§e⚠ 注意: ストーム境界に近づいています！")
+                sender.sendMessage("§e⚠ Warning: You are close to the storm border!")
             }
         }
         
         // プレイヤーのリング状況
-        sender.sendMessage("§e--- プレイヤーのリング状況 ---")
+        sender.sendMessage("§e--- Player Ring Status ---")
         var safeCount = 0
         var dangerCount = 0
         
@@ -711,52 +704,52 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             }
         }
         
-        sender.sendMessage("§aセーフゾーン内のプレイヤー: §f$safeCount")
-        sender.sendMessage("§cデンジャーゾーン内のプレイヤー: §f$dangerCount")
+        sender.sendMessage("§aPlayers in safe zone: §f$safeCount")
+        sender.sendMessage("§cPlayers in danger zone: §f$dangerCount")
     }
     
     private fun showWorldBorderInfo(sender: CommandSender) {
         val world = Bukkit.getWorlds()[0]
         val worldBorder = world.worldBorder
         
-        sender.sendMessage("§9=== WorldBorder デバッグ情報 ===")
-        sender.sendMessage("§e中心: §f${worldBorder.center.blockX}, ${worldBorder.center.blockZ}")
-        sender.sendMessage("§eサイズ（直径）: §f${worldBorder.size}")
-        sender.sendMessage("§e半径: §f${worldBorder.size / 2.0}")
-        sender.sendMessage("§eダメージ量: §f${worldBorder.damageAmount}")
-        sender.sendMessage("§eダメージバッファ: §f${worldBorder.damageBuffer}")
-        sender.sendMessage("§e警告距離: §f${worldBorder.warningDistance}")
-        sender.sendMessage("§e警告時間: §f${worldBorder.warningTime}")
+        sender.sendMessage("§9=== WorldBorder Debug Info ===")
+        sender.sendMessage("§eCenter: §f${worldBorder.center.blockX}, ${worldBorder.center.blockZ}")
+        sender.sendMessage("§eSize (diameter): §f${worldBorder.size}")
+        sender.sendMessage("§eRadius: §f${worldBorder.size / 2.0}")
+        sender.sendMessage("§eDamage Amount: §f${worldBorder.damageAmount}")
+        sender.sendMessage("§eDamage Buffer: §f${worldBorder.damageBuffer}")
+        sender.sendMessage("§eWarning Distance: §f${worldBorder.warningDistance}")
+        sender.sendMessage("§eWarning Time: §f${worldBorder.warningTime}")
         
         // Game ring info for comparison
-        sender.sendMessage("§9=== ゲームのリング情報 ===")
-        sender.sendMessage("§eリング中心: §f${currentRingCenter?.blockX ?: "null"}, ${currentRingCenter?.blockZ ?: "null"}")
-        sender.sendMessage("§eリング半径: §f$currentRingRadius")
-        sender.sendMessage("§eリングフェーズ: §f$currentRingPhase")
-        sender.sendMessage("§e縮小中: §f$isRingShrinking")
+        sender.sendMessage("§9=== Game Ring Info ===")
+        sender.sendMessage("§eRing Center: §f${currentRingCenter?.blockX ?: "null"}, ${currentRingCenter?.blockZ ?: "null"}")
+        sender.sendMessage("§eRing Radius: §f$currentRingRadius")
+        sender.sendMessage("§eRing Phase: §f$currentRingPhase")
+        sender.sendMessage("§eIs Shrinking: §f$isRingShrinking")
         
         // Check if sizes match
         val expectedSize = currentRingRadius * 2
         val actualSize = worldBorder.size
         if (kotlin.math.abs(expectedSize - actualSize) > 1.0) {
-            sender.sendMessage("§c⚠ 警告: WorldBorder のサイズ ($actualSize) が想定サイズ ($expectedSize) と一致しません！")
+            sender.sendMessage("§c⚠ WARNING: WorldBorder size ($actualSize) doesn't match expected size ($expectedSize)!")
         } else {
-            sender.sendMessage("§a✓ WorldBorder のサイズはゲームのリングサイズと一致しています")
+            sender.sendMessage("§a✓ WorldBorder size matches game ring size")
         }
         
         // Test player position if sender is a player
         if (sender is Player) {
             val isInside = worldBorder.isInside(sender.location)
-            sender.sendMessage("§9=== プレイヤー位置テスト ===")
-            sender.sendMessage("§eあなたの位置: §f${sender.location.blockX}, ${sender.location.blockY}, ${sender.location.blockZ}")
+            sender.sendMessage("§9=== Player Position Test ===")
+            sender.sendMessage("§eYour position: §f${sender.location.blockX}, ${sender.location.blockY}, ${sender.location.blockZ}")
             sender.sendMessage("§eWorldBorder.isInside(): §f$isInside")
             
             // Manual distance calculation for comparison
             val dx = sender.location.x - worldBorder.center.x
             val dz = sender.location.z - worldBorder.center.z
             val distance2D = kotlin.math.sqrt(dx * dx + dz * dz)
-            sender.sendMessage("§e中心からの2D距離: §f${distance2D.toInt()} ブロック")
-            sender.sendMessage("§e状態: §f境界の ${if (isInside) "§a内側" else "§c外側"}")
+            sender.sendMessage("§e2D Distance from center: §f${distance2D.toInt()} blocks")
+            sender.sendMessage("§eStatus: §f${if (isInside) "§aINSIDE" else "§cOUTSIDE"} the border")
         }
     }
     
@@ -766,22 +759,22 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             return
         }
         
-        sender.sendMessage("§9§l⛈ ストーム・リング・システム稼働中 ⛈")
-        sender.sendMessage("§7セーフゾーン外のプレイヤーには以下の効果が発生します:")
-        sender.sendMessage("§7• 激しい雨とストーム効果")
-        sender.sendMessage("§7• フェーズに応じた継続ダメージ")
-        sender.sendMessage("§7• 後半フェーズでの落雷")
+        sender.sendMessage("§9§l⛈ Storm Ring System Active ⛈")
+        sender.sendMessage("§7Players outside the safe zone experience:")
+        sender.sendMessage("§7• Heavy rain and storm effects")
+        sender.sendMessage("§7• Progressive damage based on phase")
+        sender.sendMessage("§7• Lightning strikes in later phases")
         
         sender.sendMessage("")
-        sender.sendMessage("§e現在のストーム半径: §f${currentRingRadius.toInt()} ブロック")
-        sender.sendMessage("§eストームフェーズ: §f$currentRingPhase / 7")
+        sender.sendMessage("§eCurrent storm radius: §f${currentRingRadius.toInt()} blocks")
+        sender.sendMessage("§eStorm phase: §f$currentRingPhase / 7")
         
         if (sender is Player) {
             val distance = sender.location.distance(ringCenter!!)
             if (distance > currentRingRadius) {
-                sender.sendMessage("§9現在ストーム内にいます！")
+                sender.sendMessage("§9You are currently in the storm!")
             } else {
-                sender.sendMessage("§aセーフゾーン内にいます")
+                sender.sendMessage("§aYou are in the safe zone")
             }
         }
     }
@@ -1267,13 +1260,6 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         }
     }
     
-    @EventHandler
-    fun onPlayerFallDamage(event: EntityDamageEvent) {
-        if (event.entity is Player && event.cause == EntityDamageEvent.DamageCause.FALL) {
-            event.isCancelled = true
-        }
-    }
-    
     private fun checkWinCondition() {
         if (currentGame == null || currentGame!!.state != GameState.ACTIVE) {
             return
@@ -1644,78 +1630,148 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     
     // 個別のレジェンドアイテムを配布
     private fun giveLegendItem(player: Player, legend: Legend) {
-        val item = when (legend) {
-            Legend.PATHFINDER -> ItemStack(Material.FISHING_ROD).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§b§lGrappling Hook")
-                meta.lore = listOf(
-                    "§7Pathfinder's tactical ability",
-                    "§7Right-click to grapple!",
-                    "§7Cooldown: 15 seconds"
-                )
-                meta.isUnbreakable = true
-                itemMeta = meta
+        when (legend) {
+            Legend.PATHFINDER -> {
+                // グラップリングフック
+                val grapplingHook = ItemStack(Material.FISHING_ROD).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§b§lGrappling Hook")
+                    meta.lore = listOf(
+                        "§7Pathfinder's tactical ability",
+                        "§7Right-click to grapple!",
+                        "§7Cooldown: 15 seconds"
+                    )
+                    meta.isUnbreakable = true
+                    itemMeta = meta
+                }
+                
+                // ジップライン
+                val zipline = ItemStack(Material.LEAD, 3).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§e§lZipline Launcher")
+                    meta.lore = listOf(
+                        "§7Creates a zipline to distant blocks",
+                        "§7Right-click to deploy!",
+                        "§7Max distance: 64 blocks"
+                    )
+                    meta.persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "zipline_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        "pathfinder_zipline"
+                    )
+                    itemMeta = meta
+                }
+                
+                // カスタムタグを追加
+                grapplingHook.itemMeta = grapplingHook.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(grapplingHook)
+                player.inventory.addItem(zipline)
+                return
             }
             
-            Legend.WRAITH -> ItemStack(Material.ENDER_EYE).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§5§lVoid Walk")
-                meta.lore = listOf(
-                    "§7Wraith's tactical ability",
-                    "§7Right-click to phase!",
-                    "§7Duration: 3 seconds",
-                    "§7Cooldown: 25 seconds"
-                )
-                itemMeta = meta
+            Legend.WRAITH -> {
+                val item = ItemStack(Material.ENDER_EYE).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§5§lVoid Walk")
+                    meta.lore = listOf(
+                        "§7Wraith's tactical ability",
+                        "§7Right-click to phase!",
+                        "§7Duration: 3 seconds",
+                        "§7Cooldown: 25 seconds"
+                    )
+                    itemMeta = meta
+                }
+                
+                item.itemMeta = item.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(item)
             }
             
-            Legend.LIFELINE -> ItemStack(Material.GOLDEN_APPLE).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§a§lD.O.C. Heal Drone")
-                meta.lore = listOf(
-                    "§7Lifeline's tactical ability",
-                    "§7Right-click to deploy healing drone!",
-                    "§7Heals nearby players",
-                    "§7Cooldown: 45 seconds"
-                )
-                itemMeta = meta
+            Legend.LIFELINE -> {
+                val item = ItemStack(Material.GOLDEN_APPLE).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§a§lD.O.C. Heal Drone")
+                    meta.lore = listOf(
+                        "§7Lifeline's tactical ability",
+                        "§7Right-click to deploy healing drone!",
+                        "§7Heals nearby players",
+                        "§7Cooldown: 45 seconds"
+                    )
+                    itemMeta = meta
+                }
+                
+                item.itemMeta = item.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(item)
             }
             
-            Legend.BANGALORE -> ItemStack(Material.IRON_BLOCK).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§7§lDome Shield")
-                meta.lore = listOf(
-                    "§7Bangalore's tactical ability",
-                    "§7Right-click to deploy dome shield!",
-                    "§7Creates protective dome",
-                    "§7Cooldown: 30 seconds"
-                )
-                itemMeta = meta
+            Legend.BANGALORE -> {
+                val item = ItemStack(Material.IRON_BLOCK).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§7§lDome Shield")
+                    meta.lore = listOf(
+                        "§7Bangalore's tactical ability",
+                        "§7Right-click to deploy dome shield!",
+                        "§7Creates protective dome",
+                        "§7Cooldown: 30 seconds"
+                    )
+                    itemMeta = meta
+                }
+                
+                item.itemMeta = item.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(item)
             }
             
-            Legend.GIBRALTAR -> ItemStack(Material.FIRE_CHARGE).apply {
-                val meta = itemMeta!!
-                meta.setDisplayName("§c§lDefensive Bombardment")
-                meta.lore = listOf(
-                    "§7Gibraltar's tactical ability",
-                    "§7Right-click to call airstrike!",
-                    "§7Marks location for bombardment",
-                    "§7Cooldown: 120 seconds"
-                )
-                itemMeta = meta
+            Legend.GIBRALTAR -> {
+                val item = ItemStack(Material.FIRE_CHARGE).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§c§lDefensive Bombardment")
+                    meta.lore = listOf(
+                        "§7Gibraltar's tactical ability",
+                        "§7Right-click to call airstrike!",
+                        "§7Marks location for bombardment",
+                        "§7Cooldown: 120 seconds"
+                    )
+                    itemMeta = meta
+                }
+                
+                item.itemMeta = item.itemMeta?.apply {
+                    persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        legend.name
+                    )
+                }
+                
+                player.inventory.addItem(item)
             }
         }
-        
-        // アイテムにカスタムタグを追加（ドロップ防止用）
-        item.itemMeta = item.itemMeta?.apply {
-            persistentDataContainer.set(
-                org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "legend_item"),
-                org.bukkit.persistence.PersistentDataType.STRING,
-                legend.name
-            )
-        }
-        
-        player.inventory.addItem(item)
     }
     
     
@@ -1919,52 +1975,6 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         }.runTaskTimer(this, 0L, 5L)
     }
     
-    /**
-     * 5分ごとにボーダー中心を上下左右のいずれかに20ブロック移動し、
-     * 面積を10%縮小（直径は sqrt(0.9) 倍）する。
-     */
-    private fun startRandomBorderShift() {
-        // 既存タスクがあればキャンセル
-        randomBorderShiftTaskId?.let { Bukkit.getScheduler().cancelTask(it) }
-        
-        val taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, Runnable {
-            if (currentGame == null || currentGame!!.state != GameState.ACTIVE) {
-                return@Runnable
-            }
-            
-            val world = Bukkit.getWorlds().firstOrNull() ?: return@Runnable
-            val border = world.worldBorder
-            
-            // ランダム方向: 0=+X(E), 1=-X(W), 2=+Z(S), 3=-Z(N)
-            val dir = java.util.concurrent.ThreadLocalRandom.current().nextInt(0, 4)
-            val deltaX = when (dir) {
-                0 -> 20.0
-                1 -> -20.0
-                else -> 0.0
-            }
-            val deltaZ = when (dir) {
-                2 -> 20.0
-                3 -> -20.0
-                else -> 0.0
-            }
-            
-            val currentCenter = border.center
-            val newCenter = org.bukkit.Location(world, currentCenter.x + deltaX, currentCenter.y, currentCenter.z + deltaZ)
-            border.center = newCenter
-            currentRingCenter = newCenter
-            
-            // 面積10%縮小 → 直径は sqrt(0.9) 倍
-            val shrinkFactor = kotlin.math.sqrt(0.9)
-            val newSize = (border.size * shrinkFactor).coerceAtLeast(16.0) // 最小直径の下限
-            border.size = newSize
-            
-            // 内部のリング状態も同期
-            currentRingRadius = newSize / 2.0
-        }, 0L, 5L * 60L * 20L) // 5分毎
-        
-        randomBorderShiftTaskId = taskId
-    }
-    
     private fun spawnSupplyBox(sender: CommandSender) {
         if (currentGame == null || currentGame!!.state != GameState.ACTIVE) {
             sender.sendMessage("§cNo active game!")
@@ -2137,7 +2147,26 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                     }
                     player.inventory.addItem(rod)
                 }
-                player.sendMessage("§bPathfinder abilities activated! Use your grappling hook wisely.")
+                
+                // ジップラインアイテムも追加
+                val zipline = ItemStack(Material.LEAD).apply {
+                    val meta = itemMeta!!
+                    meta.setDisplayName("§e§lZipline Launcher")
+                    meta.lore = listOf(
+                        "§7Creates a zipline to distant blocks",
+                        "§7Right-click to deploy!",
+                        "§7Max distance: 64 blocks"
+                    )
+                    meta.persistentDataContainer.set(
+                        org.bukkit.NamespacedKey(this@Minecraft_legends_minimal, "zipline_item"),
+                        org.bukkit.persistence.PersistentDataType.STRING,
+                        "pathfinder_zipline"
+                    )
+                    itemMeta = meta
+                }
+                player.inventory.addItem(zipline)
+                
+                player.sendMessage("§bPathfinder abilities activated! Use your grappling hook and zipline wisely.")
             }
             Legend.WRAITH -> {
                 player.sendMessage("§5Wraith abilities activated! Use /br ability to enter the void.")
@@ -2278,7 +2307,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             
             if (currentTime - lastUsed < 10000L) { // 10秒
                 val remaining = ((10000L - (currentTime - lastUsed)) / 1000)
-                shooter.sendMessage("§cグラップリングフックはクールダウン中です！ 残り${remaining}秒")
+                shooter.sendMessage("§cGrappling hook on cooldown! ${remaining}s remaining")
                 event.isCancelled = true
                 return
             }
@@ -3134,7 +3163,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         player.sendMessage("§bグラップリングフック準備完了！")
     }
     
-    // エンティティを特定の場所に引き寄せる（snowgearsスタイル）
+    // エンティティを特定の場所に引き寄せる（振り子式）
     private fun pullEntityToLocation(entity: org.bukkit.entity.Entity, location: org.bukkit.Location, hook: org.bukkit.entity.FishHook) {
         val entityLocation = entity.location
         val distance = entityLocation.distance(location)
@@ -3147,45 +3176,89 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
             return
         }
         
-        // snowgearsスタイルの速度計算
-        val dx = location.x - entityLocation.x
-        val dy = location.y - entityLocation.y
-        val dz = location.z - entityLocation.z
-        
-        // 時間係数（距離に基づく）
-        val time = distance / 10.0
-        
-        // 速度ベクトルの計算（重力を考慮）
-        var vx = dx / time
-        var vy = dy / time
-        var vz = dz / time
-        
-        // 重力補正
-        vy += 0.5 * 0.98 * time
-        
-        // 速度倍率を適用
-        vx *= velocityMultiplier
-        vy *= velocityMultiplier
-        vz *= velocityMultiplier
-        
-        // 垂直方向の調整
-        if (dy > 0.0) {
-            // 上方向への移動の場合、追加のブースト
-            vy += 0.25
+        if (entity is Player) {
+            // プレイヤーの向きと糸の角度を計算
+            val playerDirection = entity.location.direction
+            val hookDirection = location.toVector().subtract(entityLocation.toVector()).normalize()
+            
+            // 角度差を計算（内積）
+            val angle = playerDirection.angle(hookDirection)
+            val angleDegrees = Math.toDegrees(angle.toDouble())
+            
+            // 角度に基づいて溜め時間を計算（最大90度で最大溜め）
+            val chargeTime = Math.min(angleDegrees / 90.0, 1.0) * 15 // 最大0.75秒の溜め
+            val chargeMultiplier = 1.0 + (chargeTime / 15.0) * 0.5 // 最大1.5倍の加速
+            
+            // 振り子の物理計算
+            val dx = location.x - entityLocation.x
+            val dy = location.y - entityLocation.y
+            val dz = location.z - entityLocation.z
+            
+            // 振り子の支点までのベクトル
+            val pendulumVector = org.bukkit.util.Vector(dx, dy, dz)
+            val pendulumLength = pendulumVector.length()
+            
+            // 重力の影響を考慮した振り子運動
+            val gravity = 0.08 // Minecraftの重力定数
+            val swingVelocity = Math.sqrt(2.0 * gravity * Math.abs(dy)) * chargeMultiplier
+            
+            // 進行方向の計算（プレイヤーの向きも考慮）
+            val swingDirection = hookDirection.clone()
+            
+            // 横方向の運動量を追加（振り子の振れ）
+            val lateralBoost = playerDirection.clone().multiply(swingVelocity * 0.3)
+            
+            // 最終速度の計算
+            val velocity = swingDirection.multiply(swingVelocity * velocityMultiplier).add(lateralBoost)
+            
+            // Y軸速度の調整（より自然な放物線を描く）
+            velocity.y = Math.max(velocity.y + 0.4, 0.6) * chargeMultiplier
+            
+            // 最大速度制限
+            val maxVelocity = 4.0
+            if (velocity.length() > maxVelocity) {
+                velocity.normalize().multiply(maxVelocity)
+            }
+            
+            // 溜めエフェクト
+            if (chargeTime > 5) {
+                entity.world.spawnParticle(
+                    org.bukkit.Particle.DUST,
+                    entity.location,
+                    20,
+                    0.5, 0.5, 0.5,
+                    org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(0, 255, 255), 2.0f)
+                )
+                entity.sendMessage("§b§l強化グラップリング！ (溜め: ${String.format("%.1f", chargeTime / 10.0)}秒)")
+            }
+            
+            // 遅延を追加して溜めを表現
+            object : BukkitRunnable() {
+                override fun run() {
+                    entity.velocity = velocity
+                }
+            }.runTaskLater(this, chargeTime.toLong())
+        } else {
+            // エンティティの場合は通常の引き寄せ
+            val dx = location.x - entityLocation.x
+            val dy = location.y - entityLocation.y
+            val dz = location.z - entityLocation.z
+            
+            val time = distance / 10.0
+            var vx = dx / time
+            var vy = dy / time
+            var vz = dz / time
+            
+            // 重力補正
+            vy += 0.5 * 0.98 * time
+            
+            // 速度倍率を適用
+            vx *= velocityMultiplier
+            vy *= velocityMultiplier
+            vz *= velocityMultiplier
+            
+            entity.velocity = org.bukkit.util.Vector(vx, vy, vz)
         }
-        
-        // 最大速度の制限
-        val maxVelocity = 4.0
-        val totalVelocity = kotlin.math.sqrt(vx * vx + vy * vy + vz * vz)
-        if (totalVelocity > maxVelocity) {
-            val scale = maxVelocity / totalVelocity
-            vx *= scale
-            vy *= scale
-            vz *= scale
-        }
-        
-        // 速度を適用
-        entity.velocity = org.bukkit.util.Vector(vx, vy, vz)
         
         // エフェクト
         if (entity is Player) {
@@ -3481,9 +3554,10 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     // パスファインダーのフックメカニクス
     private val activeHooks = mutableMapOf<UUID, org.bukkit.entity.FishHook>()
     
-    // Grappling Hook設定（snowgearsスタイル）
-    private val velocityMultiplier = 2.0 // 引き寄せ速度係数
+    // Grappling Hook設定（振り子スタイル）
+    private val velocityMultiplier = 2.5 // 引き寄せ速度係数
     private val maxHookDistance = 30.0 // 最大フック距離
+    private val maxChargeTime = 15 // 最大溜め時間（tick）
     
     @EventHandler
     fun onPlayerFish(event: org.bukkit.event.player.PlayerFishEvent) {
