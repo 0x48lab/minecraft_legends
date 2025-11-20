@@ -60,6 +60,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     private var ringShrinkTaskId: Int? = null
     private var currentRingCenter: org.bukkit.Location? = null // 現在のリング中心
     private var isRingShrinking = false // リングが縮小中か
+    private var randomBorderShiftTaskId: Int? = null // ランダムボーダー移動タスクID
     
     // リングフェーズ設定（40分ゲーム版）
     private val ringPhases = listOf(
@@ -483,6 +484,9 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         // Start supply box spawning
         startSupplyBoxSpawning()
         
+        // ランダムなボーダー移動と10%面積縮小を5分ごとに実行
+        startRandomBorderShift()
+        
         // スコアボードを初期化
         initializeScoreboard()
         
@@ -508,6 +512,10 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
         // スコアボードのクリーンアップ
         cleanupScoreboard()
         
+        // ランダムボーダー移動タスクの停止
+        randomBorderShiftTaskId?.let { Bukkit.getScheduler().cancelTask(it) }
+        randomBorderShiftTaskId = null
+
         currentGame = null
     }
     
@@ -1262,11 +1270,7 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
     @EventHandler
     fun onPlayerFallDamage(event: EntityDamageEvent) {
         if (event.entity is Player && event.cause == EntityDamageEvent.DamageCause.FALL) {
-            val player = event.entity as Player
-            val game = currentGame
-            if (game != null && game.state == GameState.ACTIVE && game.players.contains(player.uniqueId)) {
-                event.isCancelled = true
-            }
+            event.isCancelled = true
         }
     }
     
@@ -1913,6 +1917,52 @@ class Minecraft_legends_minimal : JavaPlugin(), CommandExecutor, Listener {
                 )
             }
         }.runTaskTimer(this, 0L, 5L)
+    }
+    
+    /**
+     * 5分ごとにボーダー中心を上下左右のいずれかに20ブロック移動し、
+     * 面積を10%縮小（直径は sqrt(0.9) 倍）する。
+     */
+    private fun startRandomBorderShift() {
+        // 既存タスクがあればキャンセル
+        randomBorderShiftTaskId?.let { Bukkit.getScheduler().cancelTask(it) }
+        
+        val taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, Runnable {
+            if (currentGame == null || currentGame!!.state != GameState.ACTIVE) {
+                return@Runnable
+            }
+            
+            val world = Bukkit.getWorlds().firstOrNull() ?: return@Runnable
+            val border = world.worldBorder
+            
+            // ランダム方向: 0=+X(E), 1=-X(W), 2=+Z(S), 3=-Z(N)
+            val dir = java.util.concurrent.ThreadLocalRandom.current().nextInt(0, 4)
+            val deltaX = when (dir) {
+                0 -> 20.0
+                1 -> -20.0
+                else -> 0.0
+            }
+            val deltaZ = when (dir) {
+                2 -> 20.0
+                3 -> -20.0
+                else -> 0.0
+            }
+            
+            val currentCenter = border.center
+            val newCenter = org.bukkit.Location(world, currentCenter.x + deltaX, currentCenter.y, currentCenter.z + deltaZ)
+            border.center = newCenter
+            currentRingCenter = newCenter
+            
+            // 面積10%縮小 → 直径は sqrt(0.9) 倍
+            val shrinkFactor = kotlin.math.sqrt(0.9)
+            val newSize = (border.size * shrinkFactor).coerceAtLeast(16.0) // 最小直径の下限
+            border.size = newSize
+            
+            // 内部のリング状態も同期
+            currentRingRadius = newSize / 2.0
+        }, 0L, 5L * 60L * 20L) // 5分毎
+        
+        randomBorderShiftTaskId = taskId
     }
     
     private fun spawnSupplyBox(sender: CommandSender) {
